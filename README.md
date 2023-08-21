@@ -1,6 +1,6 @@
 # Avion Cargo Polytechnique Advanced Avionics
 
- Suite de systèmes Avionique d'Avion Cargo Polytechnique
+ 
 
 ## Table of Contents
 
@@ -38,10 +38,10 @@ which consist's in a limited GUI based on pyQt.
 The primary aircraft program is the main program of this project and consists in a central class that provides the 
 primary aircraft telemetry, computer vision and navigational awareness. The current sensors used are:
 
-- GPS ()
-- Magnetometer ()
-- Accelerometer ()
-- Gyroscope ()
+- GPS (CAM-M8C)
+- Magnetometer (LIS3MDL)
+- Accelerometer & Gyro (LSM6DSL)
+- Barometer/Altimeter (BMP388)
 
 The short term plan is to implement some sort of sensor fusion algorithm in order to increase the accuracy of the readings. 
 This is necessary in order to accurately calculate the primary aircraft's heading and pitch/yaw/roll angles, which 
@@ -53,6 +53,11 @@ directly impact the accuracy of the target detection and positioning algorithm. 
 - Navigation
 - Servo Actuation
 
+### gcs_xbee.py
+
+This program provides an example of a GUI, useful in order to send commands to the primary aircraft or receive telemetry data. 
+It displays the values for various measurements and provides a series of widgets to send commands to the aircraft. 
+It is currently not possible to configure the primary aircraft from the GUI. 
 
 
 ## Installation

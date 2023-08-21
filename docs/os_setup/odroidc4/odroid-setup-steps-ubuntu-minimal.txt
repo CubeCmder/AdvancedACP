@@ -1,0 +1,142 @@
+###########################################
+####   AVION CARGO GUIDE INSTALLATION  ####
+#### ------------ ODROID C4 ---------- ####
+#### ---- UBUNTU MINIMAL 20.04LTS ---- ####
+###########################################
+# This OS version does not have a hostname on the network:
+hostnamectl set-hostname odroid
+
+# Connect to wifi
+sudo nmcli dev wifi connect SSID password "pass"
+
+//sudo rm /var/lib/apt/lists/*
+sudo apt-get update
+sudo apt full-upgrade
+
+//sudo dpkg --configure -a
+
+# OPTIONNAL:
+//sudo apt install xrdp
+
+# MANDATORY
+sudo apt install git
+//sudo apt install libgcc-11-dev
+sudo apt install software-properties-common
+sudo apt install python3-pip
+sudo apt-get install libtool
+sudo apt-get install build-essential
+sudo apt-get install autoconf
+
+########################
+# INSTALL PIP3 MODULES #
+########################
+
+pip3 install numpy
+pip3 install smbus
+pip3 install spidev
+pip3 install gps
+
+###########################
+# INSTALL RPI.GPIO-ODROID #
+###########################
+
+git clone https://github.com/awesometic/RPi.GPIO-Odroid.git
+cd RPi.GPIO-Odroid
+sudo python3 setup.py clean --all
+sudo python3 setup.py build install
+
+###############################
+# INSTALL HARDKERNEL WIRINGPI #
+###############################
+
+#$#$ Ubuntu PPA
+
+sudo apt install libwiringpi-dev odroid-wiringpi
+sudo add-apt-repository ppa:hardkernel/ppa
+sudo apt update
+sudo apt install odroid-wiringpi-python
+
+
+== OR ==
+
+
+#$#$ Manually (Git)
+
+git clone https://github.com/hardkernel/wiringPi
+cd wiringPi
+sh autogen.sh
+./configure 
+make
+sudo make install
+
+#####################
+# ENABLE INTERFACES #
+#####################
+
+#$#$ Enable i2c (Manual)
+
+sudo nano /media/boot/config.ini
+# Insert overlays="spi0 i2c0 uart0 uart1" and reboot
+
+
+== OR ==
+
+
+#$#$ ENABLE INTERFACES WITH odroid-config (enable UART, SPI & I2C)
+
+git clone https://github.com/hhk7734/odroid-config.git
+cd odroid-config
+sudo make install
+cd ..
+sudo rm -rf odroid-config
+sudo odroid-config
+
+reboot
+
+################
+# INSTALL GPSd #
+################
+
+sudo apt-get install screen
+sudo apt-get install minicom -y
+sudo apt-get install gpsd-clients gpsd -y
+
+# Insert DEVICES="dev/ttyS1" in
+sudo nano /etc/default/gpsd 
+
+# PUT GPS IN NMEA MODE (BERRY GPS MOUNTED) 
+sudo gpsctl -n
+# Change GPS update rate to 10Hz https://ozzmaker.com/faq/how-do-i-change-the-update-rate/
+echo -e "\xB5\x62\x06\x08\x06\x00\x64\x00\x01\x00\x01\x00\x7A\x12" > /dev/ttyS1
+# Change GPS update rate to 5Hz 
+echo -e "\xB5\x62\x06\x08\x06\x00\xC8\x00\x01\x00\x01\x00\xDE\x6A" > /dev/ttyS1
+# Change GPS update rate to 2Hz 
+echo -e -n "\xB5\x62\x06\x08\x06\x00\xF4\x01\x01\x00\x01\x00\x0B\x77" > /dev/ttyS1
+
+# Here is how to disable some of the sentences
+# GSA
+echo -e -n "\$PUBX,40,GSA,0,0,0,0*4E\r\n" > /dev/ttyS1
+# RMC
+echo -e -n "\$PUBX,40,RMC,0,0,0,0*47\r\n" > /dev/ttyS1
+# GLL
+echo -e -n "\$PUBX,40,GLL,0,0,0,0*5c\r\n" > /dev/ttyS1
+# ZDA
+echo -e -n "\$PUBX,40,ZDA,0,0,0,0*44\r\n" > /dev/ttyS1
+# GGA
+echo -e -n "\$PUBX,40,GGA,0,0,0,0*5A\r\n" > /dev/ttyS1
+# GSV
+echo -e -n "\$PUBX,40,GSV,0,0,0,0*59\r\n" > /dev/ttyS1
+# VTG
+echo -e -n "\$PUBX,40,VTG,0,0,0,0*5E\r\n" > /dev/ttyS1
+
+sudo rm /var/lib/dpkg/info/mate-desktop-environment-core.list
+sudo rm /var/lib/dpkg/info/enchant-2.list
+sudo rm /var/lib/dpkg/info/libraptor2-0:arm64.list
+sudo rm /var/lib/dpkg/info/python3-aptdaemon.list
+
+sudo apt-get install --reinstall mate-desktop-environment-core
+sudo apt-get install --reinstall enchant-2
+sudo apt-get install --reinstall libraptor2-0:arm64
+sudo apt-get install --reinstall python3-aptdaemon
+
+

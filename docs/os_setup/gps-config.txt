@@ -1,0 +1,9 @@
+The UBX protocol is documented here:
+
+https://ozzmaker.com/wp-content/uploads/2019/09/u-blox8-M8_ReceiverDescrProtSpec_UBX-13003221_Public.pdf
+
+How to change update rate:
+https://ozzmaker.com/faq/how-do-i-change-the-update-rate/
+
+GPS Configuration:
+https://github.com/semuconsulting/PyGPSClient

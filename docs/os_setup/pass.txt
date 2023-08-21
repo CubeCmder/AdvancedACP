@@ -1,0 +1,9 @@
+Odroid:
+ssh = odroid
+Username = root
+pass = odroid
+
+Raspberrypi:
+ssh = raspberrypi
+username = admin
+pass = pass

@@ -1,0 +1,91 @@
+########################################
+#### AVION CARGO GUIDE INSTALLATION ####
+#### ---------- RASPY  PI --------- ####
+#### ---- UBUNTU MATE 20.04LTS ---- ####
+########################################
+
+sudo apt-get update
+sudo apt full-upgrade
+
+# Connect to wifi (if required)
+sudo nmcli dev wifi connect SSID password "pass"
+
+# Install packages
+sudo apt install git
+
+# Install FileZilla
+sudo apt install software-properties-common apt-transport-https -y
+sudo apt install filezilla -y
+
+#####################
+# ENABLE INTERFACES #
+#####################
+sudo raspi-config
+* Select "Interface Options" -> "I2C" -> "Yes" to enable I2C
+* Select "Interface Options" -> "Serial Port" -> "No" -> "Yes" to enable Serial
+* Select "Finish" -> "Yes" to reboot
+
+########################
+# INSTALL PIP3 MODULES #
+########################
+sudo apt-get install libatlas-base-dev
+pip3 install smbus
+pip3 install spidev
+pip3 install gps
+pip3 install opencv-python
+pip3 install pandas
+pip3 install tabulate
+pip3 install gpsd-py3
+
+
+################
+# INSTALL GPSd #
+################
+
+sudo apt-get install screen -y
+sudo apt-get install minicom -y
+sudo apt-get install gpsd-clients gpsd -y
+sudo gpsctl --nmea
+sudo nano /etc/default/gpsd
+
+# Insert 
+	DEVICES="dev/serial0" 
+	GPSD_OPTIONS="-s <BAUDRATE>"   where <BAUDRATE> is the GPS module's baud rate (9600 by default). This needs to be changed if the GPS bdrate is changed
+
+# You can also insert the following commands into rc.local BEFORE <<EXIT 0>> (https://ozzmaker.com/berrygps_imu-faq/)
+sudo systemctl stop gpsd.socket  ---> Close gpsd 
+echo -e -n "\xB5\x62\x06\x08\x06\x00\xC8\x00\x01\x00\x01\x00\xDE\x6A" > /dev/serial0  ---> Change GPS refresh rate to 5Hz (doesn<t work for some reason)
+echo -e -n "\xB5\x62\x06\x00\x14\x00\x01\x00\x00\x00\xD0\x08\x00\x00\x00\xC2\x01\x00\x07\x00\x03\x00\x00\x00\x00\x00\xC0\x7E" > /dev/serial0  ---> Change gps baudrate to 115200
+stty -F /dev/serial0 115200  ---> Change serial port baud rate
+sudo systemctl start gpsd.socket  ---> Re-start gpsd 
+
+sudo reboot
+
+###################
+# Remote Desktop: #
+###################
+
+sudo apt install xrdp
+sudo adduser [USERNAME] # create a new user (xrdp doesn't work with admin)
+
+On Windows, open Remote Desktop -> enter new user credentials and click ok
+
+###############
+# PyGPSClient #
+###############
+*Login as [USERNAME] (VERY IMPORTANT), preferably in remote desktop
+
+sudo apt remove rustc # Remove the system installation of Rust
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh # Install rustup to handle rust toolchains
+* Select 2 and to "Default host triple? [aarch64-unknown-linux-gnu]" enter "arm-unknown-linux-gnueabihf", press ENTER for the next prompts and enter "Y" to "Modify PATH variable?"
+  Press ENTER again 
+python3 -m pip install --upgrade pygpsclient # Install PyGPSClient
+
+
+
+
+
+Useful Links
+https://stackoverflow.com/questions/53347759/importerror-libcblas-so-3-cannot-open-shared-object-file-no-such-file-or-dire
+https://numpy.org/devdocs/user/troubleshooting-importerror.html
+

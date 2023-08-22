@@ -226,10 +226,16 @@ class corePrimaryAircraft():
         #print(self.XNet.get_devices())
 
         #print("%s" % '\n'.join(map(str, self.XNet.get_connections())))
-        remote_64b_addr = XBee64BitAddress(bytearray(b'\x00\x13\xa2\x00@\x98\xa7\xba'))
+
         #self.GCS_RADIO = self.XNet.get_device_by_64(remote_64b_addr)
 
         # Instantiate a remote XBee node.
+        # NOTE: my addr is = 0013A20042312E3B
+        # We know its 64 bit address...
+        hex_string_address = '0013A2004098A7BA'
+        #hex_string_address = '0013A20042312B4B'
+        byte_array_address = bytes.fromhex(hex_string_address)
+        remote_64b_addr = XBee64BitAddress(byte_array_address)
         self.GCS_RADIO = RemoteXBeeDevice(self.radio, remote_64b_addr)
 
     def _initGPS(self):
@@ -449,7 +455,6 @@ class corePrimaryAircraft():
                  list("Acc:%.2f,%.2f,%.2f" % (AccX, AccY, AccZ)),
                  list("Gyr:%.1f,%.1f,%.1f" % (GyrX, GyrY, GyrZ)),
                  list("Heading:%.1f" % (round(heading, 1))),
-                 list("RecvOk: %.1f" % (data['RecvOk'])),
                  list("STATUS: " + data['STATUS']),
                  list('EOF')] # Indicates end of message
 

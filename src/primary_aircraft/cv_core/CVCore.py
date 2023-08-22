@@ -21,6 +21,38 @@ import numpy as np
 from utils.nav_math import get_lat_lon_from_dy_dx
 
 
+def calculate_target_coordinates_with_attitude(altitude, img_size, fov):
+    """
+
+    Args:
+        altitude:
+        img_size:
+        fov:
+
+    Returns:
+
+    """
+    center_x_image = img_size[0] // 2
+    center_y_image = img_size[1] // 2
+
+    # Calculate ground distance
+    ground_distance = altitude * math.tan(math.radians(fov / 2))
+
+    # Convert pixel coordinates to normalized values
+    normalized_pixel_x = (2 * center_x_image / img_size[0]) - 1
+    normalized_pixel_y = (2 * center_y_image / img_size[1]) - 1
+
+    # Convert normalized pixel coordinates to angular offsets
+    angular_offset_x = normalized_pixel_x * (fov / 2)
+    angular_offset_y = normalized_pixel_y * (fov / 2)
+
+    # Calculate lateral and longitudinal offsets
+    offset_x = ground_distance * math.sin(math.radians(angular_offset_x))
+    offset_y = ground_distance * math.cos(math.radians(angular_offset_y))
+
+    return offset_x, offset_y
+
+
 def color_detection(color, hsv, img):
     # traitement des couleurs sur l'image (color_detection(color, hsv))
     # filtrage (upper and lower color)
@@ -202,7 +234,6 @@ def locate_target(bearing, center_gps, x_y_target, resolution):
     Locate the target based on the GPS coordinate system.
 
     Args:
-        frame: the image
         bearing: the compass bearing [degrees from North]
         center_gps: the gps coordinates of the image center,
                     assumed to be the coordinates of the plane [latitude. longitude]

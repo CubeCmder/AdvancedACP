@@ -25,7 +25,7 @@ which consist's in a limited GUI based on pyQt.
 
 - [ ] Implement sensor fusion algorithms to accurately track primary aircraft position and attitude. 
 - [x] Target positioning and computer vision (check! - to test...)
-- [ ] Increase GPS reading frequency to 5 Htz (permanently).
+- [X] Increase GPS reading frequency to 5 Htz (permanently).
 - [ ] Further calibration for magnetometer required (outside area).
 - [ ] Change Standby mode so that terminal commands are accepted. 
 

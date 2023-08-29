@@ -2,6 +2,10 @@
 CODE TO INTERFACE WITH THE IMU (ACCEL., GYRO) ONBOARD THE BERRY-GPS-IMU-v4
 
 """
+import os, sys
+SRC_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.dirname(SRC_DIR))
+
 from utils.misc import detect_model
 
 if detect_model() == 'Hardkernel ODROID-C4\x00':
@@ -65,11 +69,11 @@ class LSM6DSL(object):
         self._address = address
         self._bus =  bus
         self.ACC_RANGES = [2, 4, 8, 16]
-        self.ACC_RANGE_CONFIG_BYTE = [0b10010011, 0b10011011, 0b10011111, 0b10010111]
-        self.ACC_RANGE_IDX = 1
+        self.ACC_RANGE_CONFIG_BYTE = [0b01000011, 0b01001011, 0b01001111, 0b01000111]
+        self.ACC_RANGE_IDX = 0
         self.GYRO_RANGES = [250, 500, 1000, 2000]
         self.GYRO_RANGE_CONFIG_BYTE = [0b10010000, 0b10010100, 0b10011000, 0b10011100]
-        self.GYRO_RANGE_IDX = 1
+        self.GYRO_RANGE_IDX = 0
 
         # initialise the accelerometer
         self._writeByte(LSM6DSL_CTRL1_XL, self.ACC_RANGE_CONFIG_BYTE[self.ACC_RANGE_IDX])  # ODR 3.33 kHz, +/- 8g , BW = 400hz

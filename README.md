@@ -33,7 +33,7 @@ which consist's in a limited GUI based on pyQt.
 
 ## Features
 
-### core_XBee.py
+### src/primary_aircraft/core_XBee.py
 
 The primary aircraft program is the main program of this project and consists in a central class that provides the 
 primary aircraft telemetry, computer vision and navigational awareness. The current sensors used are:
@@ -53,7 +53,7 @@ directly impact the accuracy of the target detection and positioning algorithm. 
 - Navigation
 - Servo Actuation
 
-### gcs_xbee.py
+### src/ground_station /gcs_xbee.py
 
 This program provides an example of a GUI, useful in order to send commands to the primary aircraft or receive telemetry data. 
 It displays the values for various measurements and provides a series of widgets to send commands to the aircraft. 

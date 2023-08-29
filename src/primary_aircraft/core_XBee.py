@@ -46,6 +46,9 @@ sys.path.append(os.path.dirname(SRC_DIR))
 # Radio
 from digi.xbee.devices import XBeeDevice, RemoteXBeeDevice, XBee64BitAddress
 
+# AHRS
+from modules.ahrs.utils import WMM
+
 # Math and data analysis modules
 from math import pi, atan2
 import cv2
@@ -151,15 +154,12 @@ class corePrimaryAircraft():
         self.STATUS = 'STANDBY'
         self.MISSION_TYPE = None
         self.CV_TARGET_LOCS = []
-        self.COMPASS_DECLINATION = 0
-        self.altMovAverage = []
+        self.declination = 0
+        #self.altMovAverage = []
         self.headingMovAverage = []
 
         self.TARGET_COLOR = None
         self.cap = None
-
-        self.failedRecv = 0
-        self.okRecv = 0
 
         self.ref_origin = []
 
@@ -186,6 +186,7 @@ class corePrimaryAircraft():
     def _initCompass(self):
         print('Setting up compass (LIS3MDL) ...')
         # Compensation and calibration?
+        self.set_declination()
 
     def _initRadio(self):
         """
@@ -218,22 +219,11 @@ class corePrimaryAircraft():
         # Add a callback function to process incoming messages
         self.radio.add_data_received_callback(self.receiveFromGCSCallback)
 
-        #self.XNet = self.radio.get_network()
-        # Start the discovery process and wait for it to be over.
-        #self.XNet.start_discovery_process()
-        #while self.XNet.is_discovery_running():
-        #    time.sleep(0.5)
-        #print(self.XNet.get_devices())
-
-        #print("%s" % '\n'.join(map(str, self.XNet.get_connections())))
-
-        #self.GCS_RADIO = self.XNet.get_device_by_64(remote_64b_addr)
-
         # Instantiate a remote XBee node.
         # NOTE: my addr is = 0013A20042312E3B
         # We know its 64 bit address...
-        hex_string_address = '0013A2004098A7BA'
-        #hex_string_address = '0013A20042312B4B'
+        #hex_string_address = '0013A2004098A7BA'
+        hex_string_address = '0013A20042312B4B'
         byte_array_address = bytes.fromhex(hex_string_address)
         remote_64b_addr = XBee64BitAddress(byte_array_address)
         self.GCS_RADIO = RemoteXBeeDevice(self.radio, remote_64b_addr)
@@ -245,6 +235,7 @@ class corePrimaryAircraft():
         # However the GPS always seems to go back to factory settings after shutdown. And here we are ...
         # To change baud rate to 115200
         # To change update rate to 5 Hz
+        # For these commands GPSD needs to be paused...
         #config = [r'echo -e -n "\xB5\x62\x06\x00\x14\x00\x01\x00\x00\x00\xD0\x08\x00\x00\x00\xC2\x01\x00\x07\x00\x03\x00\x00\x00\x00\x00\xC0\x7E" > /dev/serial0',
         #          r'echo -e "\xB5\x62\x06\x08\x06\x00\xC8\x00\x01\x00\x01\x00\xDE\x6A" > /dev/serial0']
         config = []
@@ -300,6 +291,28 @@ class corePrimaryAircraft():
         """
         raise KeyboardInterrupt
 
+    def set_declination(self):
+        """
+        Find the magnetic declination value at our current position.
+
+        Returns: True if success, else False
+
+        """
+        try:
+            # Fetch GPS Data
+            packet = gpsd.get_current()
+            lat, long = packet.lat, packet.lon
+
+            wmm = WMM()  # Create today's magnetic model
+            wmm.magnetic_field(lat, long)  # Magnetic field at latitude = 10°, longitude = -20°
+            self.declination = wmm.D  # Magnetic declination [degrees]
+
+            return True
+
+        except:
+
+            return False
+
     def fetchData(self):
         # Fetch Altimeter Data
         if self.altimeter is not None:
@@ -308,13 +321,13 @@ class corePrimaryAircraft():
             temperature, pressure, altitude = 0.0, 0.0, 0.0
 
         # Use a moving average to smooth out altitude readings
-        if len(self.altMovAverage) < 15:
-            self.altMovAverage.append(altitude)
-        else:
-            for i in range(len(self.altMovAverage), 1):
-                self.altMovAverage[i] = self.altMovAverage[i-1]
-            self.altMovAverage[0] = altitude
-        altitude = sum(self.altMovAverage)/len(self.altMovAverage)
+        #if len(self.altMovAverage) < 15:
+        #    self.altMovAverage.append(altitude)
+        #else:
+        #    for i in range(len(self.altMovAverage), 1):
+        #        self.altMovAverage[i] = self.altMovAverage[i-1]
+        #    self.altMovAverage[0] = altitude
+        #altitude = sum(self.altMovAverage)/len(self.altMovAverage)
 
         # Fetch Compass Data
         if self.compass is not None:
@@ -327,7 +340,15 @@ class corePrimaryAircraft():
         heading = atan2(magY, magX) * 180 / pi
         if heading < 0:
             heading += 360
+        heading += self.declination
 
+        #if len(self.headingMovAverage) < 5:
+        #    self.headingMovAverage.append(heading)
+        #else:
+        #    for i in range(len(self.headingMovAverage), 1):
+        #        self.headingMovAverage[i] = self.headingMovAverage[i-1]
+        #    self.headingMovAverage[0] = heading
+        #heading = sum(self.headingMovAverage)/len(self.headingMovAverage)
 
         # Fetch IMU Data
         if self.imu is not None:
@@ -339,6 +360,9 @@ class corePrimaryAircraft():
             GyrZ = self.imu.readGYRz()
         else:
             AccX, AccY, AccZ, GyrX, GyrY, GyrZ = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+
+        roll = math.degrees(math.atan2(AccY, AccZ))
+        pitch = math.degrees(math.atan2(-AccX, math.sqrt(AccY ** 2 + AccZ ** 2)))
 
         # Fetch GPS Data
         try:
@@ -355,12 +379,12 @@ class corePrimaryAircraft():
 
         # Create Data dictionary
         data = {}
-        data['time'] = datetime.datetime.now().strftime('%H:%M:%S')
+        data['time'] = datetime.datetime.now().strftime('%H:%M:%S:%f')[:-3]
         data['temperature'] = temperature
         data['pressure'] = pressure
         data['altitude'] = altitude # barometric altitude
         data['mag'] = [magX, magY, magZ]
-        data['heading'] = heading # Compass heading
+        data['att'] = [roll, pitch, heading] # Compass heading
         data['acc'] = [AccX, AccY, AccZ]
         data['gyr'] = [GyrX, GyrY, GyrZ]
         data['GPS'] = [lat, long, altGPS] # GPS position
@@ -429,7 +453,6 @@ class corePrimaryAircraft():
         pressure = data['pressure']
         altitude = data['altitude']
         #magX, magY, magZ = data['mag']
-        heading = data['heading']
         AccX, AccY, AccZ = data['acc']
         GyrX, GyrY, GyrZ = data['gyr']
         lat, long, altGPS = data['GPS']
@@ -443,20 +466,21 @@ class corePrimaryAircraft():
 
         # Indicates beginning of message
         blocks = [list('BOF'),
-                 list("TEMP_BARO:%.1f" % round(temperature, 1)),  # SENSOR AND LOCATIONAL DATA
-                 list("PRESS_BARO:%.1f" % round(pressure, 1)),
-                 list("ALT_BARO:%.4f" % round(altitude, 4)),
-                 list("GPS_LAT:" + str(round(lat, 6))),
-                 list("GPS_LONG:" + str(round(long, 6))),
-                 list("GPS_ALT:" + str(round(altGPS, 1))),
-                 list("TAR_GPS_LAT:" + str(round(TARGET_LAT, 6))),
-                 list("TAR_GPS_LONG:" + str(round(TARGET_LONG, 6))),
-                 list("LOC_POS:%.3f,%.3f" % (locN, locE)),
-                 list("Acc:%.2f,%.2f,%.2f" % (AccX, AccY, AccZ)),
-                 list("Gyr:%.1f,%.1f,%.1f" % (GyrX, GyrY, GyrZ)),
-                 list("Heading:%.1f" % (round(heading, 1))),
-                 list("STATUS: " + data['STATUS']),
-                 list('EOF')] # Indicates end of message
+                  list("TIME:" + data['time']),  # SENSOR AND LOCATIONAL DATA
+                  list("ATTITUDE:%.1f,%.1f,%.1f" % (data['att'][0], data['att'][1], data['att'][2])),  # SENSOR AND LOCATIONAL DATA
+                  list("TEMP_BARO:%.1f" % round(temperature, 1)),  # SENSOR AND LOCATIONAL DATA
+                  list("PRESS_BARO:%.1f" % round(pressure, 1)),
+                  list("ALT_BARO:%.4f" % round(altitude, 4)),
+                  list("GPS_LAT:" + str(round(lat, 6))),
+                  list("GPS_LONG:" + str(round(long, 6))),
+                  list("GPS_ALT:" + str(round(altGPS, 1))),
+                  list("TAR_GPS_LAT:" + str(round(TARGET_LAT, 6))),
+                  list("TAR_GPS_LONG:" + str(round(TARGET_LONG, 6))),
+                  list("LOC_POS:%.3f,%.3f" % (locN, locE)),
+                  list("Acc:%.2f,%.2f,%.2f" % (AccX, AccY, AccZ)),
+                  list("Gyr:%.1f,%.1f,%.1f" % (GyrX, GyrY, GyrZ)),
+                  list("STATUS: " + data['STATUS']),
+                  list('EOF')] # Indicates end of message
 
 
         return blocks
@@ -573,7 +597,8 @@ class corePrimaryAircraft():
 
                         # Indicate to GCS that message has been received and that the
                         # PA computer is ready and ARMED
-                        rep_blcks.append(list('CONF: @ARMED'))
+                        if not list('CONF: @ARMED') in rep_blcks:
+                            rep_blcks.append(list('CONF: @ARMED'))
                         if self.STATUS != "ARMED":
                             self.STATUS = 'ARMED'
 
@@ -581,10 +606,10 @@ class corePrimaryAircraft():
                             # Expect a few seconds delay here
                             if self.altimeter is not None:
                                 self.calibrate_altimeter()
-                            try:
-                                self.LOC_ORIGIN = self.set_origin()
-                            except:
-                                pass
+                            #try:
+                            self.LOC_ORIGIN = self.set_origin()
+                            #except:
+                            #    pass
 
                             # SETUP LOGGING
                             # Prepare log directory
@@ -922,8 +947,6 @@ class corePrimaryAircraft():
         '''
 
         # Variables used for calculating the reception rate
-        okRecv = 0
-        failedRecv = 0
         recvRate = 0
 
         stat = self.STATUS

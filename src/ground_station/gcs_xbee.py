@@ -10,7 +10,7 @@ from PyQt6.QtCore import Qt, QSettings, QDir, QThread, QObject, pyqtSignal as Si
 from PyQt6.QtGui import QClipboard
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QTableWidgetItem, QMessageBox, QColorDialog,
                              QFileDialog)
-from digi.xbee.devices import XBeeDevice
+from digi.xbee.devices import XBeeDevice, RemoteXBeeDevice, XBee64BitAddress
 from dronekit import connect, VehicleMode
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
@@ -184,8 +184,14 @@ class SerialReaderObj(QObject):
                     tag = data['tag']
                     data = {}
                     data['tag'] = tag + 1
-                    data['time'] = time.strftime("%H:%M:%S", time.localtime())
+                    data['time'] = time.strftime("%H:%M:%S /ovr", time.localtime())
                     data['CONF'] = []
+
+                elif message[0] == 'TIME':
+                    data['time'] = message[1] + ':' + message[2] + ':' + message[3]
+
+                elif message[0] == 'ATTITUDE':
+                    data['att'] = [float(message[1].split(',')[0]),float(message[1].split(',')[1]),float(message[1].split(',')[2])]
 
                 # Get the temperature reading of the barometer sensor
                 elif message[0] == 'TEMP_BARO':
@@ -600,6 +606,10 @@ class UI_MW(QMainWindow, Ui_MainWindow):
 
             # Open the radio channel
             self.radio.open()
+            hex_string_address = '0013A20042312E3B'
+            byte_array_address = bytes.fromhex(hex_string_address)
+            remote_64b_addr = XBee64BitAddress(byte_array_address)
+            self.PA_RADIO = RemoteXBeeDevice(self.radio, remote_64b_addr)
 
             # Start a thread that runs in the backgrounds continuously to update the gui
             self.serialReaderObj = SerialReaderObj(self.radio)
@@ -775,13 +785,15 @@ class UI_MW(QMainWindow, Ui_MainWindow):
             else:
                 error.append('Gyr')
 
-            if 'Heading' in data:
-                heading = data['Heading']
+            if 'att' in data:
+                pitch = data['att'][0]
+                roll = data['att'][1]
+                heading = data['att'][2]
                 self.heading_SB.setValue(heading)
                 #print(heading)
 
             else:
-                error.append('Heading')
+                error.append('ATTITUDE')
 
             self.dataTelemLogArray[data['tag']] = data
 
@@ -830,14 +842,15 @@ class UI_MW(QMainWindow, Ui_MainWindow):
                         if data['GPS_LAT'] != 0.0 and data['GPS_LONG'] != 0:
                             ax.lines[0].set_xdata(np.append(xdata, data['GPS_LONG']))
                             ax.lines[0].set_ydata(np.append(ydata, data['GPS_LAT']))
+                    else:
+                        ax.plot(data['GPS_LONG'], data['GPS_LAT'])
+                    self.PLOT_FIGURES['plotA']['canvas'].draw()
+                    self.PLOT_FIGURES['plotA']['canvas'].flush_events()
 
                 #min(xdata)/abs(min(xdata))*abs(min(xdata))*0.
                 #ax.set_xlim(min(xdata), max(xdata))
                 #ax.set_ylim(min(ydata), max(ydata))
-            else:
-                ax.plot(data['GPS_LONG'], data['GPS_LAT'])
-            self.PLOT_FIGURES['plotA']['canvas'].draw()
-            self.PLOT_FIGURES['plotA']['canvas'].flush_events()
+
 
 
 
@@ -950,7 +963,9 @@ class UI_MW(QMainWindow, Ui_MainWindow):
             for tx in tx_buf:
                 #tx = ''.join(tx)  # .encode('utf-8')
                 print(' => ' + tx)
-                self.radio.send_data_broadcast(bytes(tx, 'utf-8'))
+
+                self.radio.send_data_async(self.PA_RADIO, bytes(tx, 'utf-8'))  # write the message to radio
+                #self.radio.send_data_broadcast(bytes(tx, 'utf-8'))
                 self.tx_buf.remove(tx)
         except Exception as e:
             print(e)

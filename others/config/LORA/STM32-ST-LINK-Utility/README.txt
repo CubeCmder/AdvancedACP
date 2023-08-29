@@ -1,0 +1,1 @@
+Our LORA devices need to be put up to date (device is bricked)

@@ -1,5 +1,5 @@
-#Nous tentons de calculer la position d'une cible CIRCULAIRE d'une couleur connue à partir d'un avion en vol. Nous connaissons sa position GPS et son altitude, ainsi que son orientation.
-#Nous utiliseron python et open cv
+# Nous tentons de calculer la position d'une cible CIRCULAIRE d'une couleur connue à partir d'un avion en vol. Nous connaissons sa position GPS et son altitude, ainsi que son orientation.
+# Nous utiliseron python et open cv
 # Inputs:
 #   - Résolution [m/px]
 #   - Position centre de l'image [GPS]
@@ -19,9 +19,10 @@ import cv2
 import numpy as np
 
 from utils.nav_math import get_lat_lon_from_dy_dx
+from modules.cameratransform import SpatialOrientation, camera, projection
 
 
-def calculate_target_coordinates_with_attitude(altitude, img_size, fov):
+def calculate_target_coordinates_horizontal(target_loc, altitude, img_size, fov):
     """
 
     Args:
@@ -32,24 +33,55 @@ def calculate_target_coordinates_with_attitude(altitude, img_size, fov):
     Returns:
 
     """
+    # Image center coordinates
     center_x_image = img_size[0] // 2
     center_y_image = img_size[1] // 2
 
-    # Calculate ground distance
-    ground_distance = altitude * math.tan(math.radians(fov / 2))
+    # Target coordinates on the image in [px]
+    target_x = target_loc[0]
+    target_y = target_loc[1]
 
-    # Convert pixel coordinates to normalized values
-    normalized_pixel_x = (2 * center_x_image / img_size[0]) - 1
-    normalized_pixel_y = (2 * center_y_image / img_size[1]) - 1
+    # Calculate ground distance, in [m]
+    ground_width = 2 * altitude * math.tan(math.radians(fov / 2))
 
-    # Convert normalized pixel coordinates to angular offsets
-    angular_offset_x = normalized_pixel_x * (fov / 2)
-    angular_offset_y = normalized_pixel_y * (fov / 2)
+    # Calculate the position of the target relative to the image center (which itself represents the aircraft)
+    rel_target_x = target_x - center_x_image
+    rel_target_y = target_y - center_y_image
 
-    # Calculate lateral and longitudinal offsets
-    offset_x = ground_distance * math.sin(math.radians(angular_offset_x))
-    offset_y = ground_distance * math.cos(math.radians(angular_offset_y))
+    # Calculate the real world offsets in meters, ground_width / img_size[0] is the image resolution in [m/px]
+    offset_x = rel_target_x * ground_width / img_size[0]
+    offset_y = rel_target_y * ground_width / img_size[0]
 
+    # maybe offset y needs to be *-1
+    return offset_x, offset_y
+
+
+def get_img_offset_meters(target_loc, altitude, pitch, roll, img_size, hfov):
+    """
+    Calculate the real world offsets in meters for the target position relative to the aircraft. This function considers
+    aircraft pitch and roll.
+
+    Args:
+        target_loc: Target position on image; array (1x2) [pixels]
+        altitude: Aircraft altitude, or camera height above the ground plane; float [meters]
+        pitch: Aircraft pitch (0 is looking straight in front) [degrees]
+        roll: Aircraft roll angle [degrees]
+        img_size: Image size in pixels; array (1x2) [pixels]
+        hfov: Horizontal FOV angle of camera [degrees]
+
+    Returns: X and Y offsets in meters relative to the aircraft.
+
+    """
+    orientation = SpatialOrientation(elevation_m=altitude, tilt_deg=90 - pitch, roll_deg=roll)
+
+    proj = projection.RectilinearProjection(image_width_px=img_size[0], image_height_px=img_size[1], view_x_deg=hfov,
+                                            view_y_deg=hfov * img_size[1] / img_size[0])
+
+    cam = camera(proj, orientation)
+
+    offset_x, offset_y, _ = cam.spaceFromImage(target_loc)
+
+    # maybe offset y needs to be *-1
     return offset_x, offset_y
 
 
@@ -150,6 +182,7 @@ def color_detection(color, hsv, img):
 
         return (result, mask)
 
+
 def detect_target(frame, color):
     """
     Detects the target on the captured frame.
@@ -187,6 +220,7 @@ def detect_target(frame, color):
         cv2.drawContours(frame, [target_contour], -1, (0, 255, 0), 2)
 
         return frame, target_contour
+
 
 def pos_target(frame, target_contour):
     '''
@@ -229,6 +263,7 @@ def pos_target(frame, target_contour):
 
     return rel_pos, pos
 
+
 def locate_target(bearing, center_gps, x_y_target, resolution):
     '''
     Locate the target based on the GPS coordinate system.
@@ -262,17 +297,16 @@ def locate_target(bearing, center_gps, x_y_target, resolution):
 
     # À partir des coordonnées du véhicule et le offset en mètres vers le Nord et le Sud, trouver les coordonnées de la Cible
     dlat, dlong = get_lat_lon_from_dy_dx(latitude_origin, longitude_origin, rotated_x, rotated_y)
-    #dlat2, dlong2 = get_point_at_distance(latitude_origin, longitude_origin, rotated_x, rotated_y)
+    # dlat2, dlong2 = get_point_at_distance(latitude_origin, longitude_origin, rotated_x, rotated_y)
 
     target_gps = [dlat, dlong]
     target_pos_rel = [x, y]
 
-
     return target_gps, target_pos_rel
 
 if __name__ == '__main__':
-    resolution = 945.4581754044675/803
-    resolution = 463.6084526469746/1109
+    resolution = 945.4581754044675 / 803
+    resolution = 463.6084526469746 / 1109
     latitude_vehicule, longitude_vehicule = 45.51778389240875, -73.78416575263206
     bearing = 0
 
@@ -285,7 +319,8 @@ if __name__ == '__main__':
         print('\nNo target detected.')
     else:
         target_pos_rel, target_pos = pos_target(image, target_contour)
-        target_gps, target_pos_rel = locate_target(bearing, [latitude_vehicule, longitude_vehicule], target_pos_rel, resolution)
+        target_gps, target_pos_rel = locate_target(bearing, [latitude_vehicule, longitude_vehicule], target_pos_rel,
+                                                   resolution)
 
         cv2.putText(image, text='RELATIVE_POSITION: {} (meters - image CS)'.format(target_pos_rel),
                     org=(10, 20),
@@ -305,8 +340,6 @@ if __name__ == '__main__':
         cv2.imshow('Image avec la cible détectée', image)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
-
-
 
     r'''
     # ================================================================== #

@@ -71,9 +71,12 @@ class LSM6DSL(object):
         self.ACC_RANGES = [2, 4, 8, 16]
         self.ACC_RANGE_CONFIG_BYTE = [0b01000011, 0b01001011, 0b01001111, 0b01000111]
         self.ACC_RANGE_IDX = 0
+        self.ACC_OFFSET = [0.00529, -0.02581, 0.01124]
+
         self.GYRO_RANGES = [250, 500, 1000, 2000]
         self.GYRO_RANGE_CONFIG_BYTE = [0b10010000, 0b10010100, 0b10011000, 0b10011100]
         self.GYRO_RANGE_IDX = 0
+        self.GYRO_OFFSET = [1.03656, -1.15796, -0.65619]
 
         # initialise the accelerometer
         self._writeByte(LSM6DSL_CTRL1_XL, self.ACC_RANGE_CONFIG_BYTE[self.ACC_RANGE_IDX])  # ODR 3.33 kHz, +/- 8g , BW = 400hz
@@ -90,7 +93,7 @@ class LSM6DSL(object):
 
         acc_combined = (acc_l | acc_h << 8)
         acc_combined = acc_combined if acc_combined < 32768 else acc_combined - 65536
-        return acc_combined/(2.0**15)*self.ACC_RANGES[self.ACC_RANGE_IDX]
+        return acc_combined/(2.0**15)*self.ACC_RANGES[self.ACC_RANGE_IDX]-self.ACC_OFFSET[0]
 
     def readACCy(self):
         acc_l = self._bus.read_byte_data(LSM6DSL_ADDRESS, LSM6DSL_OUTY_L_XL)
@@ -98,7 +101,7 @@ class LSM6DSL(object):
 
         acc_combined = (acc_l | acc_h << 8)
         acc_combined = acc_combined if acc_combined < 32768 else acc_combined - 65536
-        return acc_combined / (2.0 ** 15) * self.ACC_RANGES[self.ACC_RANGE_IDX]
+        return acc_combined / (2.0 ** 15) * self.ACC_RANGES[self.ACC_RANGE_IDX]-self.ACC_OFFSET[1]
 
     def readACCz(self):
         acc_l = self._bus.read_byte_data(LSM6DSL_ADDRESS, LSM6DSL_OUTZ_L_XL)
@@ -106,7 +109,7 @@ class LSM6DSL(object):
 
         acc_combined = (acc_l | acc_h << 8)
         acc_combined = acc_combined if acc_combined < 32768 else acc_combined - 65536
-        return acc_combined / (2.0 ** 15) * self.ACC_RANGES[self.ACC_RANGE_IDX]
+        return acc_combined / (2.0 ** 15) * self.ACC_RANGES[self.ACC_RANGE_IDX]-self.ACC_OFFSET[2]
 
     def readGYRx(self):
         gyr_l = self._bus.read_byte_data(LSM6DSL_ADDRESS, LSM6DSL_OUTX_L_G)
@@ -114,7 +117,7 @@ class LSM6DSL(object):
 
         gyr_combined = (gyr_l | gyr_h << 8)
         gyr_combined = gyr_combined if gyr_combined < 32768 else gyr_combined - 65536
-        return gyr_combined / (2.0 ** 15) * self.GYRO_RANGES[self.GYRO_RANGE_IDX]
+        return gyr_combined / (2.0 ** 15) * self.GYRO_RANGES[self.GYRO_RANGE_IDX]-self.GYRO_OFFSET[0]
 
     def readGYRy(self):
         gyr_l = self._bus.read_byte_data(LSM6DSL_ADDRESS, LSM6DSL_OUTY_L_G)
@@ -122,7 +125,7 @@ class LSM6DSL(object):
 
         gyr_combined = (gyr_l | gyr_h << 8)
         gyr_combined = gyr_combined if gyr_combined < 32768 else gyr_combined - 65536
-        return gyr_combined / (2.0 ** 15) * self.GYRO_RANGES[self.GYRO_RANGE_IDX]
+        return gyr_combined / (2.0 ** 15) * self.GYRO_RANGES[self.GYRO_RANGE_IDX]-self.GYRO_OFFSET[1]
 
     def readGYRz(self):
         gyr_l = self._bus.read_byte_data(LSM6DSL_ADDRESS, LSM6DSL_OUTZ_L_G)
@@ -130,7 +133,7 @@ class LSM6DSL(object):
 
         gyr_combined = (gyr_l | gyr_h << 8)
         gyr_combined = gyr_combined if gyr_combined < 32768 else gyr_combined - 65536
-        return gyr_combined / (2.0 ** 15) * self.GYRO_RANGES[self.GYRO_RANGE_IDX]
+        return gyr_combined / (2.0 ** 15) * self.GYRO_RANGES[self.GYRO_RANGE_IDX]-self.GYRO_OFFSET[2]
 
 if __name__ == '__main__':
 

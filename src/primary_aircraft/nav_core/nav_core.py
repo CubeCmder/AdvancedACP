@@ -195,29 +195,31 @@ class NAVCore(threading.Thread):
         x_i = np.array([sensor_report.yaw_raw, sensor_report.pitch_raw, sensor_report.roll_raw])
         self.ekf_ahrs = ekf_ahrs(x_i=x_i, dt=self.dt)
 
-    def update_ekf(self):
+    def update_ekf(self, update=True):
         print("\nUPDATE EKF")
         yaw_init = self.ekf_ahrs.x[0]
         pitch_init = self.ekf_ahrs.x[1]
         roll_init = self.ekf_ahrs.x[2]
-        # Define the rotation matrix (example rotation about y-axis by 45 degrees)
+        # Define the rotation matrix 
         rot_mat0 = Rotation.from_euler('z', yaw_init, degrees=True).as_matrix()
         rot_mat1 = Rotation.from_euler('y', pitch_init, degrees=True).as_matrix()
         rot_mat2 = Rotation.from_euler('x', roll_init, degrees=True).as_matrix()
         rot_mat = rot_mat0 @ rot_mat1 @ rot_mat2
+        print(rot_mat)
         # A. Get Sensor Data
         sensor_report = self.get_data()
 
         # B. Estimate Aircraft Orientation
         #   B.1) Prepare Sensor Data for filtration
-        gyr = rot_mat @ sensor_report.gyr
+        gyr = sensor_report.gyr
         print(f'GYR: {gyr}')
-        z_ahrs = rot_mat @ np.array([sensor_report.yaw_raw, sensor_report.pitch_raw, sensor_report.roll_raw])
+        z_ahrs = np.array([sensor_report.yaw_raw, sensor_report.pitch_raw, sensor_report.roll_raw])
         print(f'Z_AHRS_RAW: {z_ahrs}')
         #   B.2) Predict ekf
-        self.ekf_ahrs.predict(gyr[::-1])
+        x_ahrs = self.ekf_ahrs.predict(gyr[::-1])
         #   B.3) Update ekf
-        x_ahrs = self.ekf_ahrs.update(z_ahrs)
+        if update:
+            x_ahrs = self.ekf_ahrs.update(z_ahrs)
 
         # C. Estimate Aircraft Position
         #   B.1) Prepare Sensor Data for filtration
@@ -232,6 +234,7 @@ class NAVCore(threading.Thread):
 
     def run(self):
         self.running = True
+        tic = time.time()
         while True:
 
             t1 = time.time()
@@ -240,7 +243,14 @@ class NAVCore(threading.Thread):
                 break
             else:
                 # Collect report
-                self.reports.put(self.update_ekf())
+                if time.time() - tic >= 1:
+                    update = True
+                    tic = time.time()
+                    print('Update!')
+                else:
+                    update = False
+
+                self.reports.put(self.update_ekf(update=True))
                 pass
 
             # Wait for next loop

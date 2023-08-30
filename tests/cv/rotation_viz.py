@@ -4,6 +4,9 @@ from scipy.spatial.transform import Rotation
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
+def angle_vector_plane(v,n):
+    theta = np.arccos(np.dot(n,v)/np.linalg.norm(n)*np.linalg.norm(v))
+    return np.degrees(theta)
 # Heading = 90 - theta
 # Tilt = Tilt
 # Roll = - yaw
@@ -28,7 +31,7 @@ for i, m in enumerate(rots):
     rot_mat = np.linalg.linalg.matmul(rot_mat, m)
     z_prime = np.linalg.linalg.matmul(rot_mat, original_vector)
     tilt = math.degrees(np.pi / 2 - np.arccos(np.abs(np.linalg.linalg.dot(z_prime, [0.0, 0.0, -1.0])) / (np.linalg.norm(z_prime))))
-    print(90-tilt)
+    print(f"\nCamera Tilt: {90-tilt:.2f}")
     # Apply the rotation to the vector
     rotated_vector = z_prime
 
@@ -39,7 +42,7 @@ for i, m in enumerate(rots):
     # Calculate the heading angle (angle between z_p_proj and the Y-axis)
     cos_theta_heading = np.dot(z_p_proj, np.array([1, 0, 0])) / np.linalg.norm(z_p_proj)
     theta_heading = np.degrees(np.arccos(cos_theta_heading))
-    print(theta_heading)
+    print(f'Camera Heading: {theta_heading:0.2f}')
 
 
 
@@ -67,8 +70,6 @@ for i, m in enumerate(rots):
         [rectangle_width / 2, -rectangle_length / 2, rectangle_z_off]
     ]
 
-
-
     # Apply the same rotation matrix to the rectangle vertices
     rotated_rectangle_vertices = np.dot(rot_mat, np.array(rectangle_vertices).T).T
 
@@ -78,6 +79,17 @@ for i, m in enumerate(rots):
               rotated_rectangle_vertices[2][2] - rotated_rectangle_vertices[1][2],
               color='purple', label='Camera Y')
 
+    x_cam = np.array([rotated_rectangle_vertices[1][0] - rotated_rectangle_vertices[0][0],
+                      rotated_rectangle_vertices[1][1] - rotated_rectangle_vertices[0][1],
+                      rotated_rectangle_vertices[1][2] - rotated_rectangle_vertices[0][2]])
+    ax.quiver(0, 0, 0,
+              x_cam[0],
+              x_cam[1],
+              x_cam[2],
+              color='purple', label='Camera X')
+
+    cam_roll_angle = 90 - angle_vector_plane(x_cam, [0, 0, 1])
+    print(f'Camera Roll: {cam_roll_angle:.2f}')
     # Plot the rotated rectangle
     rectangle = Poly3DCollection([rotated_rectangle_vertices], color='purple', alpha=0.7)
     ax.add_collection3d(rectangle)

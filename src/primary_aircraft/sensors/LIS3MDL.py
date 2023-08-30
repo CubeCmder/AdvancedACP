@@ -4,17 +4,11 @@ CODE TO INTERFACE WITH THE COMPASS ONBOARD THE BERRY-GPS-IMU-v4
 """
 
 import os, sys
-SRC_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SRC_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.append(os.path.dirname(SRC_DIR))
+print(SRC_DIR)
 
-from utils.misc import detect_model
-
-if detect_model() == 'Hardkernel ODROID-C4\x00':
-    i2c_bus = 0x00
-elif detect_model() == 'Raspberry Pi 3 Model B Rev 1.2\x00':
-    i2c_bus = 0x01
-else:
-    i2c_bus = 0x01
+i2c_bus = 0x01
 
 import smbus
 import numpy as np
@@ -176,7 +170,7 @@ class LIS3MDL(object):
 
         calibrated_data = np.dot(self.SOFT_IRON_MATRIX, raw_data - self.HARD_IRON_OFFSET)
         # Flip the X-axis and the Y-axis so that they are aligned with the imu axes
-        calibrated_data[0] = calibrated_data[0] * -1
+        #calibrated_data[0] = calibrated_data[0] * -1
         calibrated_data[1] = calibrated_data[1] * -1
 
         return calibrated_data

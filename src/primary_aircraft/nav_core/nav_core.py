@@ -271,7 +271,7 @@ class NAVCore(threading.Thread):
         print(f'Z_AHRS_RAW = {z_ahrs}')
 
         #   B.2) Predict ekf
-        x_ahrs = self.ekf_ahrs.predict(gyr, dt=time.time()-self.t0)
+        x_ahrs = self.ekf_ahrs.predict(gyr, dt=self.t0)
         print(f"dt = {time.time()-self.t0}, vs {self.dt}")
         self.t0 = time.time()
 

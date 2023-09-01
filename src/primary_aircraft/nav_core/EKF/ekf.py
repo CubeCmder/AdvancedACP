@@ -1,3 +1,4 @@
+from time import time
 import numpy as np
 from numpy.linalg import linalg
 
@@ -179,7 +180,7 @@ class ekf_ahrs():
         F = self.F
 
         if dt is not None:
-            B = self.update_matrix_B(dt)
+            B = self.update_matrix_B(time()-dt)
         else:
             B = self.B
 

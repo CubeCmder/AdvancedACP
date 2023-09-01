@@ -77,6 +77,7 @@ class NAVReport:
 class SensorReport:
     # Report sensor data in an organised object
     def __init__(self,
+                 t=0.0,
                  acc_x=0.0,
                  acc_y=0.0,
                  acc_z=0.0,
@@ -94,6 +95,7 @@ class SensorReport:
                  baro_alt=0.0,
                  mag_declination=0.0):
 
+        self.time = t
         self.acc = np.array((acc_x, acc_y, acc_z))
         self.gyr = np.array((gyr_x, gyr_y, gyr_z))
         self.mag = np.array((mag_x, mag_y, mag_z))
@@ -170,6 +172,7 @@ class NAVCore(threading.Thread):
         self.init_ekf()
 
     def get_data(self):
+        t = time.time()
         # Fetch Altimeter Data
         if self.altimeter is not None:
             temperature, pressure, altitude = self.altimeter.get_temperature_and_pressure_and_altitude()
@@ -200,7 +203,8 @@ class NAVCore(threading.Thread):
         except:
             lat, long, altGPS = 0.0, 0.0, 0.0
 
-        report = SensorReport(acc_x=AccX,
+        report = SensorReport(time=t,
+                              acc_x=AccX,
                               acc_y=AccY,
                               acc_z=AccZ,
                               gyr_x=GyrX,
@@ -230,7 +234,7 @@ class NAVCore(threading.Thread):
         self.ekf_ahrs = ekf_ahrs(x_i=x_i, dt=self.dt)
         self.t0 = time.time()
 
-    def update_ekf(self, update=True):
+    def update_ekf(self, sensors, update=True):
         print("\nUPDATE EKF")
 
         # This is the last estimate of the aircraft orientation. Use this to define the rotation matrix.
@@ -250,16 +254,16 @@ class NAVCore(threading.Thread):
         print(f"ROT_MAT = \n{rot_mat}")
 
         # A. Get Sensor Data
-        sensor_report = self.get_data()
+
         # Heading must be tilt-compensated - we'll use the kalman filter data for this.
-        sensor_report.yaw_raw = tilt_compensated_heading(sensor_report.mag,
+        sensors.yaw_raw = tilt_compensated_heading(sensors.mag,
                                                          angles=[roll_init, pitch_init],
                                                          geo_north=True,
                                                          mag_declination=self.mag_declination)
         # B. Estimate Aircraft Orientation
         # B.1) Prepare Sensor Data for filtration
         #      Gyro measurements need to be brought back to the fixed coordinate system
-        gyr = np.linalg.inv(rot_mat) @ sensor_report.gyr
+        gyr = np.linalg.inv(rot_mat) @ sensors.gyr
         #      Gyro readings must be given to the filter in the [yaw pitch roll] sequence
         gyr = gyr[::-1]
         print(f'GYR = {gyr}')
@@ -267,7 +271,7 @@ class NAVCore(threading.Thread):
         # The following vector represents yaw, pitch and roll measurements based on accelerometer readings.
         # Depending on the motion of the aircraft at the moment of capture, this information may or may not be accurate
         # due to external, non-gravitational accelerations. The Kalman Filter will attempt to correct this.
-        z_ahrs = np.array([sensor_report.yaw_raw, sensor_report.pitch_raw, sensor_report.roll_raw])
+        z_ahrs = np.array([sensors.yaw_raw, sensors.pitch_raw, sensors.roll_raw])
         print(f'Z_AHRS_RAW = {z_ahrs}')
 
         #   B.2) Predict ekf
@@ -308,8 +312,9 @@ class NAVCore(threading.Thread):
                 else:
                     update = False
 
-                self.reports.put(self.update_ekf(update=False))
-                pass
+                sensor_report = self.get_data()
+                self.reports.put(self.update_ekf(sensor_report, update=False))
+
 
             # Wait for next loop
             print(time.time() - t1)

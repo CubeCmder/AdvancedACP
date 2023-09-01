@@ -3,15 +3,11 @@ CODE TO INTERFACE WITH THE IMU (ACCEL., GYRO) ONBOARD THE BERRY-GPS-IMU-v4
 
 """
 import os, sys
+import numpy as np
 SRC_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.dirname(SRC_DIR))
 
-from utils.misc import detect_model
-
-if detect_model() == 'Hardkernel ODROID-C4\x00':
-    i2c_bus = 0x00
-elif detect_model() == 'Raspberry Pi 3 Model B Rev 1.2\x00':
-    i2c_bus = 0x01
+i2c_bus = 0x01
 
 import smbus
 
@@ -74,15 +70,17 @@ class LSM6DSL(object):
         self.ACC_OFFSET = [0.00529, -0.02581, 0.01124]
 
         self.GYRO_RANGES = [250, 500, 1000, 2000]
-        self.GYRO_RANGE_CONFIG_BYTE = [0b10010000, 0b10010100, 0b10011000, 0b10011100]
+        self.GYRO_RANGE_CONFIG_BYTE = [0b10000000, 0b10000100, 0b10001000, 0b10001100]
         self.GYRO_RANGE_IDX = 0
         self.GYRO_OFFSET = [1.03656, -1.15796, -0.65619]
 
         # initialise the accelerometer
         self._writeByte(LSM6DSL_CTRL1_XL, self.ACC_RANGE_CONFIG_BYTE[self.ACC_RANGE_IDX])  # ODR 3.33 kHz, +/- 8g , BW = 400hz
-        self._writeByte(LSM6DSL_CTRL3_C, 0b01000100)  # Enable Block Data update, increment during multi byte read
+
         # initialise the gyroscope
-        self._writeByte(LSM6DSL_CTRL2_G, self.GYRO_RANGE_CONFIG_BYTE[self.GYRO_RANGE_IDX])  # ODR 3.3 kHz, 2000 dps
+        self._writeByte(LSM6DSL_CTRL2_G, self.GYRO_RANGE_CONFIG_BYTE[self.GYRO_RANGE_IDX])  # ODR 1.67 kHz, 250 dps
+
+        self._writeByte(LSM6DSL_CTRL3_C, 0b01000100)  # Enable Block Data update, increment during multi byte read
 
     def _writeByte(self, register, value):
         self._bus.write_byte_data(self._address, register, value)
@@ -117,7 +115,7 @@ class LSM6DSL(object):
 
         gyr_combined = (gyr_l | gyr_h << 8)
         gyr_combined = gyr_combined if gyr_combined < 32768 else gyr_combined - 65536
-        return gyr_combined / (2.0 ** 15) * self.GYRO_RANGES[self.GYRO_RANGE_IDX]-self.GYRO_OFFSET[0]
+        return (gyr_combined / (2.0 ** 15) * self.GYRO_RANGES[self.GYRO_RANGE_IDX])-self.GYRO_OFFSET[0]
 
     def readGYRy(self):
         gyr_l = self._bus.read_byte_data(LSM6DSL_ADDRESS, LSM6DSL_OUTY_L_G)
@@ -125,7 +123,8 @@ class LSM6DSL(object):
 
         gyr_combined = (gyr_l | gyr_h << 8)
         gyr_combined = gyr_combined if gyr_combined < 32768 else gyr_combined - 65536
-        return gyr_combined / (2.0 ** 15) * self.GYRO_RANGES[self.GYRO_RANGE_IDX]-self.GYRO_OFFSET[1]
+
+        return (gyr_combined / (2.0 ** 15) * self.GYRO_RANGES[self.GYRO_RANGE_IDX])-self.GYRO_OFFSET[1]
 
     def readGYRz(self):
         gyr_l = self._bus.read_byte_data(LSM6DSL_ADDRESS, LSM6DSL_OUTZ_L_G)
@@ -133,15 +132,18 @@ class LSM6DSL(object):
 
         gyr_combined = (gyr_l | gyr_h << 8)
         gyr_combined = gyr_combined if gyr_combined < 32768 else gyr_combined - 65536
-        return gyr_combined / (2.0 ** 15) * self.GYRO_RANGES[self.GYRO_RANGE_IDX]-self.GYRO_OFFSET[2]
+        return (gyr_combined / (2.0 ** 15) * self.GYRO_RANGES[self.GYRO_RANGE_IDX])-self.GYRO_OFFSET[2]
 
 if __name__ == '__main__':
+
 
     import time
     print("LSM6DSL Test Program ...\n")
     LSM6DSL = LSM6DSL(smbus.SMBus(i2c_bus))
+    a = 0
+    t = time.time()
     while True:
-        time.sleep(1)
+        time.sleep(0.001)
         AccX = LSM6DSL.readACCx()
         AccY = LSM6DSL.readACCy()
         AccZ = LSM6DSL.readACCz()
@@ -154,5 +156,11 @@ if __name__ == '__main__':
 
         print('AccX = %.2f g\nAccY = %.2f g\nAccZ = %.2f g\n' % (AccX, AccY, AccZ))
         print('GyrX = %.2f dps\nGyrY = %.2f dps\nGyrZ = %.2f dps\n' % (GyrX, GyrY, GyrZ))
+
+        roll_raw = np.degrees(np.arctan2(AccY, np.sqrt(AccX ** 2 + AccZ ** 2)))
+        a+=GyrX*(time.time()-t)
+        t=time.time()
+        print(f"ROLL ANGLE INT + {a:0.2f}")
+        print(f"ROLL ANGLE ACC + {roll_raw:0.2f}")
 
         print('===================================================\n\n')

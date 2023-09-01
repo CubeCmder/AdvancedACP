@@ -27,7 +27,7 @@ if __name__ == '__main__':
     imu = LSM6DSL(i2c_bus)
     altimeter = BMP388(i2c_bus)
 
-    nav_core = NAVCore(dt=0.05, altimeter=altimeter, imu=imu, compass=mag)
+    nav_core = NAVCore(dt=1/50, altimeter=altimeter, imu=imu, compass=mag)
     nav_core.start()
     angles = []
     T0 = time.time()

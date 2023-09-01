@@ -123,7 +123,7 @@ class ekf_ahrs():
         # Number of measurement inputs: Heading, Pitch and Yaw? from Accelerometer
         self.p = p
 
-
+        self.t0 = 0
 
         # System State Vector
         if x_i is None:
@@ -135,7 +135,7 @@ class ekf_ahrs():
         self.u = np.zeros(m)
 
         # Error Covariance Matrix - We assume initial conditions are known with high confidence
-        self.P = np.eye(n)/8
+        self.P = np.eye(n)/80
         # State Transition Matrix (To Be Defined)
         self.F = self.update_matrix_F()
         # Control Input Matrix
@@ -143,10 +143,11 @@ class ekf_ahrs():
         # Measurement Matrix H
         self.H = np.eye(p, n, 0)
         # Process Noise Covariance Matrix - This can be obtained in the noise level in the states of the system at steady state
-        q_vals = np.array([0.39653, 3.45907, 9.56484]) * self.dt
+        #q_vals = np.array([0.39653, 3.45907, 9.56484]) * self.dt
+        q_vals = np.array([1, 1, 1])*0.005625
         self.Q = np.diag(q_vals)
         # Measurement Noise Covariance Matrix - Instrument covariances
-        r_vals = np.array([1, 1, 1])/5
+        r_vals = np.array([1, 1, 1])*0.075#**2
         self.R = np.diag(r_vals)
 
         # Kalman Gain
@@ -175,13 +176,15 @@ class ekf_ahrs():
         """
         self.u = np.array(gyr).T
 
+        F = self.F
+
         if dt is not None:
-            F = self.update_matrix_F()
+            B = self.update_matrix_B(dt)
         else:
-            F = self.F
+            B = self.B
 
         # Define matrix F based on dt
-        self.x = F @ self.x + self.B @ self.u
+        self.x = F @ self.x + B @ self.u
         self.P = (F @ self.P) @ F.T + self.Q
 
 

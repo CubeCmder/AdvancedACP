@@ -37,7 +37,8 @@ def tilt_compensated_heading(mag, rot_mat=None, angles=None, geo_north=True, mag
 
     # Handle options/arguments
     if rot_mat is None and angles is not None:
-        rot_mat = Rotation.from_euler('xy', angles)
+        rot_mat = Rotation.from_euler('xy', angles).as_matrix()
+
     elif angles is None and rot_mat is None:
         raise Exception('Both rotation matrix and angles missing.')
     elif not (angles is None and rot_mat is None):
@@ -227,9 +228,11 @@ class NAVCore(threading.Thread):
         # This EKF estimates aircraft attitude
         x_i = np.array([sensor_report.yaw_raw, sensor_report.pitch_raw, sensor_report.roll_raw])
         self.ekf_ahrs = ekf_ahrs(x_i=x_i, dt=self.dt)
+        self.t0 = time.time()
 
     def update_ekf(self, update=True):
         print("\nUPDATE EKF")
+
         # This is the last estimate of the aircraft orientation. Use this to define the rotation matrix.
         # These three angles represent Tait-Bryan angles, or Euler angles.
         yaw_init = self.ekf_ahrs.x[0]
@@ -244,11 +247,11 @@ class NAVCore(threading.Thread):
 
         # rot_mat represents the rotation matrix that transforms coordinates in the fixed coordinate system to
         # the local coordinate system. The inverse of this matrix does the opposite transformation (see step B.1))
-        print(f"ROT_MAT = {rot_mat}")
+        print(f"ROT_MAT = \n{rot_mat}")
 
         # A. Get Sensor Data
         sensor_report = self.get_data()
-        # Heading must be tilt compensated - we'll use the kalman filter data for this.
+        # Heading must be tilt-compensated - we'll use the kalman filter data for this.
         sensor_report.yaw_raw = tilt_compensated_heading(sensor_report.mag,
                                                          angles=[roll_init, pitch_init],
                                                          geo_north=True,
@@ -268,7 +271,9 @@ class NAVCore(threading.Thread):
         print(f'Z_AHRS_RAW = {z_ahrs}')
 
         #   B.2) Predict ekf
-        x_ahrs = self.ekf_ahrs.predict(gyr)
+        x_ahrs = self.ekf_ahrs.predict(gyr, dt=time.time()-self.t0)
+        print(f"dt = {time.time()-self.t0}, vs {self.dt}")
+        self.t0 = time.time()
 
         #   B.3) Update ekf
         if update:
@@ -296,17 +301,18 @@ class NAVCore(threading.Thread):
                 break
             else:
                 # Collect report
-                if time.time() - tic >= 1:
+                if time.time() - tic >= 0.1:
                     update = True
                     tic = time.time()
                     print('Update!')
                 else:
                     update = False
 
-                self.reports.put(self.update_ekf(update=True))
+                self.reports.put(self.update_ekf(update=False))
                 pass
 
             # Wait for next loop
+            print(time.time() - t1)
             while time.time() - t1 < self.dt:
                 pass
 

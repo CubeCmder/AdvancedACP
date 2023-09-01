@@ -28,6 +28,11 @@ for i, ax in enumerate(axes):
     ax.set_ylabel(labels[i])
     ax.legend()
 
+    if i != 0:
+        ax.set_ylim(-90, 90)
+    else:
+        ax.set_ylim(0, 360)
+
 # Optionally save or display the figure
 # plt.savefig('subplots.png')
 print(f"Means Measured: {np.mean(angles[:,4]):0.5f}, {np.mean(angles[:,5]):0.5f}, {np.mean(angles[:,6]):0.5f}")

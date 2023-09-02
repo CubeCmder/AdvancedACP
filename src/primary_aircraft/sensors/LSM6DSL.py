@@ -6,6 +6,7 @@ import os, sys
 import numpy as np
 SRC_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.dirname(SRC_DIR))
+from modules.ahrs.common.orientation import am2angles
 
 i2c_bus = 0x01
 
@@ -86,6 +87,7 @@ class LSM6DSL(object):
         self._bus.write_byte_data(self._address, register, value)
 
     def readACCx(self):
+        # This needs to be negated
         acc_l = self._bus.read_byte_data(LSM6DSL_ADDRESS, LSM6DSL_OUTX_L_XL)
         acc_h = self._bus.read_byte_data(LSM6DSL_ADDRESS, LSM6DSL_OUTX_H_XL)
 
@@ -160,7 +162,7 @@ if __name__ == '__main__':
         roll_raw = np.degrees(np.arctan2(AccY, np.sqrt(AccX ** 2 + AccZ ** 2)))
         a+=GyrX*(time.time()-t)
         t=time.time()
-        print(f"ROLL ANGLE INT + {a:0.2f}")
+        acc = np.array([AccX, AccY, AccZ])
         print(f"ROLL ANGLE ACC + {roll_raw:0.2f}")
 
         print('===================================================\n\n')

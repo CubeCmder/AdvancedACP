@@ -1,16 +1,18 @@
 import os,sys
-import numpy
-import smbus
-import time
 
 SRC_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.dirname(SRC_DIR))
 print(SRC_DIR)
 
-from src.primary_aircraft.nav_core.nav_core import *
-from src.primary_aircraft.sensors.LIS3MDL import LIS3MDL
-from src.primary_aircraft.sensors.LSM6DSL import LSM6DSL
-from src.primary_aircraft.sensors.BMP388 import BMP388
+import numpy
+import time
+import smbus
+from math import atan2
+
+from primary_aircraft.nav_core.nav_core import *
+from primary_aircraft.sensors.LIS3MDL import LIS3MDL
+from primary_aircraft.sensors.LSM6DSL import LSM6DSL
+from primary_aircraft.sensors.BMP388 import BMP388
 
 np.set_printoptions(precision=4, suppress=True)
 
@@ -30,12 +32,13 @@ if __name__ == '__main__':
 
     data = [['Time', 'ACCX', 'ACCY', 'ACCZ', 'GYRX', 'GYRY', 'GYRZ', 'MAGX', 'MAGY', 'MAGZ']]
     run = True
-    dt = 1/10
+    dt = 1/50
     tic = time.time()
 
+    i = 0
     while run:
         try:
-            t = time.time()
+            i+=1
             accx = imu.readACCx()
             accy = imu.readACCy()
             accz = imu.readACCz()
@@ -46,19 +49,24 @@ if __name__ == '__main__':
 
             magx, magy, magz = mag.getCorrectedData()
 
-            data.append([t, accx, accy, accz, gyrx, gyry, gyrz, magx, magy, magz])
+            data.append([time.time(), accx, accy, accz, gyrx, gyry, gyrz, magx, magy, magz])
 
+            yaw_measured = atan2(-magy, magx) * 180 / pi
+            if yaw_measured < 0:
+                yaw_measured += 360
+
+            print(f"YAW MEASURED = {yaw_measured:0.2f}")
             while time.time() - tic < dt:
                 pass
             tic = time.time()
-
+            print(f'Time: {dt*i:02f} - idx: {i:0.2f}')
         except (KeyboardInterrupt, SystemExit):  # When you press ctrl+c
             print("\nKilling Program...")
             run = False
 
     data = np.array(data)
 
-    save_angles_to_file(data, 'data.csv')
+    save_angles_to_file(data, '../nav_core/data.csv')
 
 
 

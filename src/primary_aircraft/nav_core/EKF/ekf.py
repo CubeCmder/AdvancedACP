@@ -136,7 +136,7 @@ class ekf_ahrs():
         self.u = np.zeros(m)
 
         # Error Covariance Matrix - We assume initial conditions are known with high confidence
-        self.P = np.eye(n)/80
+        self.P = np.eye(n)/8
         # State Transition Matrix (To Be Defined)
         self.F = self.update_matrix_F()
         # Control Input Matrix
@@ -148,7 +148,7 @@ class ekf_ahrs():
         q_vals = np.array([1, 1, 1])*0.005625
         self.Q = np.diag(q_vals)
         # Measurement Noise Covariance Matrix - Instrument covariances
-        r_vals = np.array([1, 1, 1])*0.075#**2
+        r_vals = np.array([1, 1, 1])*0.075/6*10#**2
         self.R = np.diag(r_vals)
 
         # Kalman Gain
@@ -180,13 +180,15 @@ class ekf_ahrs():
         F = self.F
 
         if dt is not None:
-            B = self.update_matrix_B(time()-dt)
+            B = np.diag([dt, dt, dt])
+            #B = self.update_matrix_B(dt)
         else:
             B = self.B
 
         # Define matrix F based on dt
         self.x = F @ self.x + B @ self.u
         self.P = (F @ self.P) @ F.T + self.Q
+
 
 
 
@@ -204,7 +206,6 @@ class ekf_ahrs():
         '''
 
         self.K = self.P @ self.H.T @ linalg.inv(self.H @ self.P @ self.H.T + self.R)
-
         self.x = self.x + self.K @ (z - self.H @ self.x)
 
         # Update the estimate uncertainty

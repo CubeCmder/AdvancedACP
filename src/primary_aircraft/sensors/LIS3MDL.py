@@ -171,7 +171,7 @@ class LIS3MDL(object):
         calibrated_data = np.dot(self.SOFT_IRON_MATRIX, raw_data - self.HARD_IRON_OFFSET)
         # Flip the X-axis and the Y-axis so that they are aligned with the imu axes
         #calibrated_data[0] = calibrated_data[0] * -1
-        calibrated_data[1] = calibrated_data[1] * -1
+        #calibrated_data[1] = calibrated_data[1] * -1
 
         return calibrated_data
 
@@ -190,6 +190,7 @@ if __name__ == '__main__':
         if heading < 0:
             heading += 360
         print('HEADING: {} degN'.format(heading))
+        print(f'MAG: X={magX}, Y={magY}, Z={magZ},\n'.format(heading))
 
 
 

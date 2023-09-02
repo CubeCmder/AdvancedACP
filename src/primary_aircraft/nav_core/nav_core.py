@@ -7,7 +7,7 @@ offload these calculations from the main thread.
 '''
 
 import time
-import gpsd
+# import gpsd
 import numpy as np
 import threading
 
@@ -15,9 +15,11 @@ from math import pi
 from queue import LifoQueue
 from scipy.spatial.transform import Rotation
 
-from src.modules.ahrs.utils import WMM as wmm
-from .EKF.ekf import ekf_pos, ekf_ahrs
-
+from modules.ahrs.utils import WMM as wmm
+from EKF.ekf import ekf_pos, ekf_ahrs
+from modules.ahrs.common.orientation import ecompass, am2angles
+from modules.NavPy.navpy.core.navpy import omega2rates
+#R_roll = np.array([[1, 0, 0], [0, np.cos()],[]])
 
 def tilt_compensated_heading(mag, rot_mat=None, angles=None, geo_north=True, mag_declination=0):
     """
@@ -37,18 +39,19 @@ def tilt_compensated_heading(mag, rot_mat=None, angles=None, geo_north=True, mag
 
     # Handle options/arguments
     if rot_mat is None and angles is not None:
-        rot_mat = Rotation.from_euler('xy', angles).as_matrix()
+        rot_mat = Rotation.from_euler('xy', [angles[0], angles[1]], degrees=True)
 
     elif angles is None and rot_mat is None:
         raise Exception('Both rotation matrix and angles missing.')
-    elif not (angles is None and rot_mat is None):
+    elif angles is not None and rot_mat is not None:
         raise Exception('Ambiguous args: both rotation matrix and angles given.')
 
     # Apply rotation of magnetometer readings to convert them to the stationary frame
-    mag_prime = np.linalg.inv(rot_mat) @ mag
+    #mag_prime = np.linalg.inv(rot_mat) @ mag
+    mag_prime = rot_mat.inv().apply(mag)
+    # Apply tilt compensation
 
-    h = np.arctan2(mag_prime[1], mag_prime[0]) * 180 / pi
-
+    h = np.arctan2(-mag_prime[1], mag_prime[0]) * 180 / pi
     # By definition: 0 <= yaw <= 360
     if h < 0:
         h += 360
@@ -56,6 +59,9 @@ def tilt_compensated_heading(mag, rot_mat=None, angles=None, geo_north=True, mag
     # Include magnetic declination
     if geo_north:
         h += mag_declination
+
+    print(f'MAG = {mag}')
+    print(f'HEADING {h}')
 
     return h
 
@@ -94,7 +100,6 @@ class SensorReport:
                  baro_press=0.0,
                  baro_alt=0.0,
                  mag_declination=0.0):
-
         self.time = t
         self.acc = np.array((acc_x, acc_y, acc_z))
         self.gyr = np.array((gyr_x, gyr_y, gyr_z))
@@ -107,12 +112,16 @@ class SensorReport:
 
         self.mag_declination = mag_declination
 
-        self.roll_raw = np.degrees(np.arctan2(acc_y, np.sqrt(acc_x ** 2 + acc_z ** 2)))
+        self.roll_raw = np.degrees(np.arctan2(-acc_y, np.sqrt(acc_x ** 2 + acc_z ** 2)))
         self.pitch_raw = np.degrees(np.arctan2(acc_x, np.sqrt(acc_y ** 2 + acc_z ** 2)))
-        self.yaw_raw = tilt_compensated_heading(self.mag,
-                                                angles=[self.pitch_raw, self.roll_raw],
-                                                geo_north=True,
-                                                mag_declination=self.mag_declination)
+        self.yaw_raw = am2angles(self.acc, self.mag, in_deg=True)[0][2] + self.mag_declination
+        #self.yaw_raw = np.degrees(ecompass(self.acc, self.mag, 'NED', 'rpy')[0])
+        # if self.yaw_raw<0:
+        #     self.yaw_raw+=360
+        # self.yaw_raw = tilt_compensated_heading(self.mag,
+        #                                     angles=[self.roll_raw, self.pitch_raw],
+        #                                     geo_north=False,
+        #                                     mag_declination=self.mag_declination)
 
 
 class NAVCore(threading.Thread):
@@ -125,14 +134,17 @@ class NAVCore(threading.Thread):
     def __init__(self,
                  dt=0.2,
                  gps_origin=None,
+                 declination=None,
                  core=None,
                  altimeter=None,
                  compass=None,
-                 imu=None):
+                 imu=None,
+                 x0_ahrs=None):
 
         threading.Thread.__init__(self)
 
         # Declare ekf attributes
+        self.t0 = None
         self.ekf_ahrs = None
         self.ekf_pos = None
 
@@ -152,7 +164,10 @@ class NAVCore(threading.Thread):
             self.origin = gps_origin
 
         # Find magnetic declination at origin
-        self.mag_declination = wmm(latitude=self.origin[0], longitude=self.origin[1]).D
+        if declination is None:
+            self.mag_declination = wmm(latitude=self.origin[0], longitude=self.origin[1]).D
+        else:
+            self.mag_declination = declination
 
         # Get sensors
         if core is not None:
@@ -164,12 +179,16 @@ class NAVCore(threading.Thread):
             self.compass = compass
             self.imu = imu
         else:
-            raise Exception('NAVCore: At least one sensor absent.')
+            self.altimeter = None
+            self.compass = None
+            self.imu = None
+            print('[WARNING] NAVCore: At least one sensor absent.')
+            # raise Exception('NAVCore: At least one sensor absent.')
 
         self.reports = LifoQueue()
         self._stop_event = threading.Event()
 
-        self.init_ekf()
+        self.init_ekf(x0_ahrs)
 
     def get_data(self):
         t = time.time()
@@ -203,7 +222,7 @@ class NAVCore(threading.Thread):
         except:
             lat, long, altGPS = 0.0, 0.0, 0.0
 
-        report = SensorReport(time=t,
+        report = SensorReport(t=t,
                               acc_x=AccX,
                               acc_y=AccY,
                               acc_z=AccZ,
@@ -223,18 +242,22 @@ class NAVCore(threading.Thread):
 
         return report
 
-    def init_ekf(self):
-        sensor_report = self.get_data()
+    def init_ekf(self, x0_ahrs=None):
+        if x0_ahrs is None:
+            #sensor_report = self.get_data()
+            #x_i = np.array([sensor_report.yaw_raw, sensor_report.pitch_raw, sensor_report.roll_raw])
+            x_i = np.array([0, 0, 0])
+        else:
+            x_i = x0_ahrs
 
         # This EKF estimates aircraft position
-        # self.ekf_pos = ekf_pos()
+        self.ekf_pos = ekf_pos()
 
         # This EKF estimates aircraft attitude
-        x_i = np.array([sensor_report.yaw_raw, sensor_report.pitch_raw, sensor_report.roll_raw])
         self.ekf_ahrs = ekf_ahrs(x_i=x_i, dt=self.dt)
         self.t0 = time.time()
 
-    def update_ekf(self, sensors, update=True):
+    def update_ekf(self, dt, sensors, update=True):
         print("\nUPDATE EKF")
 
         # This is the last estimate of the aircraft orientation. Use this to define the rotation matrix.
@@ -245,7 +268,8 @@ class NAVCore(threading.Thread):
 
         # Define the rotation matrix: (the two following function calls are equivalent)
         # Extrinsic rotation -> sequence is [pitch roll yaw] around axes [x, y, z]
-        rot_mat = Rotation.from_euler('xyz', [roll_init, pitch_init, yaw_init], degrees=True).as_matrix()
+        #rot_mat = Rotation.from_euler('xyz', [roll_init, pitch_init, yaw_init], degrees=True).as_matrix()
+        rot_mat = omega2rates(pitch_init, roll_init, input_unit='deg', euler_angles_order='yaw_pitch_roll')
         # Intrinsic rotation -> sequence is [yaw, roll, pitch] around axes [z, y, x]
         # rot_mat = Rotation.from_euler('ZYX', [yaw_init, roll_init, pitch_init], degrees=True).as_matrix()
 
@@ -256,14 +280,15 @@ class NAVCore(threading.Thread):
         # A. Get Sensor Data
 
         # Heading must be tilt-compensated - we'll use the kalman filter data for this.
-        sensors.yaw_raw = tilt_compensated_heading(sensors.mag,
-                                                         angles=[roll_init, pitch_init],
-                                                         geo_north=True,
-                                                         mag_declination=self.mag_declination)
+        # sensors.yaw_raw = tilt_compensated_heading(sensors.mag,
+        #                                            angles=[roll_init, pitch_init],
+        #                                            geo_north=False,
+        #                                            mag_declination=self.mag_declination)
         # B. Estimate Aircraft Orientation
         # B.1) Prepare Sensor Data for filtration
         #      Gyro measurements need to be brought back to the fixed coordinate system
         gyr = np.linalg.inv(rot_mat) @ sensors.gyr
+        #gyr = sensors.gyr
         #      Gyro readings must be given to the filter in the [yaw pitch roll] sequence
         gyr = gyr[::-1]
         print(f'GYR = {gyr}')
@@ -275,8 +300,8 @@ class NAVCore(threading.Thread):
         print(f'Z_AHRS_RAW = {z_ahrs}')
 
         #   B.2) Predict ekf
-        x_ahrs = self.ekf_ahrs.predict(gyr, dt=self.t0)
-        print(f"dt = {time.time()-self.t0}, vs {self.dt}")
+        x_ahrs = self.ekf_ahrs.predict(gyr, dt=dt)
+        print(f"dt = {time.time() - self.t0}, vs {dt}")
         self.t0 = time.time()
 
         #   B.3) Update ekf
@@ -314,7 +339,6 @@ class NAVCore(threading.Thread):
 
                 sensor_report = self.get_data()
                 self.reports.put(self.update_ekf(sensor_report, update=False))
-
 
             # Wait for next loop
             print(time.time() - t1)

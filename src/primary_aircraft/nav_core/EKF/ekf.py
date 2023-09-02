@@ -148,7 +148,7 @@ class ekf_ahrs():
         q_vals = np.array([1, 1, 1])*0.005625
         self.Q = np.diag(q_vals)
         # Measurement Noise Covariance Matrix - Instrument covariances
-        r_vals = np.array([1, 1, 1])*0.075/6*10#**2
+        r_vals = np.array([1, 1, 1])*0.075/6#**2
         self.R = np.diag(r_vals)
 
         # Kalman Gain

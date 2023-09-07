@@ -5,6 +5,7 @@ from math import pi, atan2
 from modules.ahrs.common.orientation import am2angles
 
 
+
 def load_data_from_file(filename):
     data = []
     with open(filename, 'r') as file:
@@ -17,7 +18,7 @@ def load_data_from_file(filename):
 
 if __name__ == '__main__':
 
-    data = loaded_data = load_data_from_file('data.csv')  # Open the file containing the results here into a numpy array (nx10)
+    data = loaded_data = load_data_from_file('static_axes_data.csv')  # Open the file containing the results here into a numpy array (nx10)
 
     AccX = -data[0][1]
     AccY = data[0][2]
@@ -93,7 +94,7 @@ if __name__ == '__main__':
         #if yaw_measured < 0:
             #yaw_measured += 360
         res.append(np.concatenate(
-            ([t], nav_core.ekf_ahrs.x, [report.roll_raw, report.pitch_raw], [roll_int, yaw_int], [yaw_measured])))
+            ([t], nav_core.ekf_ahrs.x, [-report.roll_raw, -report.pitch_raw], [roll_int, yaw_int], [yaw_measured])))
 
     print(f'\n\n\nKalman Gain: \n{nav_core.ekf_ahrs.K}')
     res = np.array(res)

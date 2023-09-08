@@ -50,7 +50,7 @@ if __name__ == '__main__':
 
     print(f"GYR MEAN: {np.mean(m[:, 4]):0.5f}, {np.mean(m[:, 5]):0.5f}, {np.mean(m[:, 6]):0.5f}")
     print(f"GYR VAR:  {np.var(m[:, 4]):0.5f}, {np.var(m[:, 5]):0.5f}, {np.var(m[:, 6]):0.5f}")
-    save_m_to_file(m, 'data.csv')
+    save_m_to_file(m, 'semi_static_various_motion_data.csv')
 
 
 

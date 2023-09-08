@@ -73,7 +73,8 @@ class LSM6DSL(object):
         self.GYRO_RANGES = [250, 500, 1000, 2000]
         self.GYRO_RANGE_CONFIG_BYTE = [0b10000000, 0b10000100, 0b10001000, 0b10001100]
         self.GYRO_RANGE_IDX = 0
-        self.GYRO_OFFSET = [1.03656, -1.15796, -0.65619]
+        self.GYRO_OFFSET = [-0.06792+1.02226, 0.42835+-1.14538, 0.06748+-0.66381]
+        self.GYRO_OFFSET = [0.93654, -0.76905, -0.58101]
 
         # initialise the accelerometer
         self._writeByte(LSM6DSL_CTRL1_XL, self.ACC_RANGE_CONFIG_BYTE[self.ACC_RANGE_IDX])  # ODR 3.33 kHz, +/- 8g , BW = 400hz

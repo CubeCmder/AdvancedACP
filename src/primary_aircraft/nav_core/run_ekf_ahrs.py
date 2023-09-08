@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from src.primary_aircraft.nav_core.nav_core import NAVCore, SensorReport
@@ -8,24 +9,10 @@ from src.modules.ahrs.common.orientation import acc2q, q2euler, am2q, q2rpy
 from src.modules.ahrs.utils.wmm import WMM
 
 
-def get_quaternion_from_euler(roll, pitch, yaw):
-    """
-    Convert an Euler angle to a quaternion.
-
-    Input
-      :param roll: The roll (rotation around x-axis) angle in radians.
-      :param pitch: The pitch (rotation around y-axis) angle in radians.
-      :param yaw: The yaw (rotation around z-axis) angle in radians.
-
-    Output
-      :return qx, qy, qz, qw: The orientation in quaternion [x,y,z,w] format
-    """
-    qx = np.sin(roll / 2) * np.cos(pitch / 2) * np.cos(yaw / 2) - np.cos(roll / 2) * np.sin(pitch / 2) * np.sin(yaw / 2)
-    qy = np.cos(roll / 2) * np.sin(pitch / 2) * np.cos(yaw / 2) + np.sin(roll / 2) * np.cos(pitch / 2) * np.sin(yaw / 2)
-    qz = np.cos(roll / 2) * np.cos(pitch / 2) * np.sin(yaw / 2) - np.sin(roll / 2) * np.sin(pitch / 2) * np.cos(yaw / 2)
-    qw = np.cos(roll / 2) * np.cos(pitch / 2) * np.cos(yaw / 2) + np.sin(roll / 2) * np.sin(pitch / 2) * np.sin(yaw / 2)
-
-    return [qw, qx, qy, qz]
+P = np.array([[ 3.84830773e-03,-7.56085038e-05, 3.66641139e-04,-5.57215587e-04],
+ [-7.56085038e-05, 6.33500666e-04,-9.96881488e-06, 2.02551025e-05],
+ [ 3.66641139e-04,-9.96881488e-06, 6.81227140e-04,-4.71979784e-05],
+ [-5.57215587e-04, 2.02551025e-05,-4.71979784e-05, 9.85962205e-05]])
 
 def load_data_from_file(filename):
     data = []
@@ -39,7 +26,7 @@ def load_data_from_file(filename):
 
 if __name__ == '__main__':
 
-    data = loaded_data = load_data_from_file('data.csv')  # Open the file containing the results here into a numpy array (nx10)
+    data = load_data_from_file('static_no_motion_data.csv')  # Open the file containing the results here into a numpy array (nx10)
 
     t = 0
 
@@ -65,14 +52,14 @@ if __name__ == '__main__':
             break
 
         AccX = data_point[1]
-        AccY = data_point[2]
+        AccY = data_point[2]#
         AccZ = data_point[3]
-        GyrX = data_point[4]
-        GyrY = data_point[5]
-        GyrZ = data_point[6]
+        GyrX = data_point[4]#*1.2#
+        GyrY = data_point[5]#*1.2
+        GyrZ = data_point[6]#*1.2
         MagX = data_point[7]
         MagY = data_point[8]
-        MagZ = data_point[9]#
+        MagZ = -data_point[9]#
 
         mag_data.append([MagX, MagY, MagZ])
         acc_data.append([AccX, AccY, AccZ])
@@ -97,7 +84,7 @@ if __name__ == '__main__':
     gyr_data = np.array(gyr_data)
 
     wmm =WMM(latitude=45.513149172533765, longitude=-73.62900722758671)
-    ekf = EKF(magnetic_ref=wmm.I, noises=[0.01**2, 0.5**2, 0.8**2],frame='NED')
+    ekf = EKF(magnetic_ref=wmm.I, noises=[0.00005**2, 0.00001**2, 0.3**2],frame='NED')
     Q = np.zeros((len(acc_data), 4))  # Allocate array for quaternions
 
     a0 = np.array([-acc_data[0][0], -acc_data[0][1], -acc_data[0][2]])
@@ -115,6 +102,8 @@ if __name__ == '__main__':
     for t in range(1, len(acc_data)):
         Q[t] = ekf.update(Q[t - 1], gyr=gyr_data[t], acc=acc_data[t], mag=mag_data[t], dt=dt_v[t])
 
+
+    print(np.array2string(ekf.P, separator=','))
     eulers = np.array([np.degrees(q2euler(i))[::-1] for i in Q])
     eulers = np.array([np.degrees(q2rpy(i))[::-1] for i in Q])
 
@@ -144,14 +133,19 @@ if __name__ == '__main__':
         if i != 0:
             ax.set_ylim(-90, 90)
         else:
-            ax.set_ylim(-90, 360)
+            ax.set_ylim(0, 360)
 
     # Optionally save or display the figure
     # plt.savefig('subplots.png')
-    print(f"Means Measured: {np.mean(data[:, 4]):0.5f}, {np.mean(data[:, 5]):0.5f}, {np.mean(data[:, 6]):0.5f}")
-    print(f"Variance Measured: {np.var(data[:, 4]):0.5f}, {np.var(data[:, 5]):0.5f}, {np.var(data[:, 6]):0.5f}")
+    print(f"Means Measured: {np.mean(gyr_data[:,0]):0.5f}, {np.mean(gyr_data[:,1]):0.5f}, {np.mean(gyr_data[:,2]):0.5f}")
+    print(f"Variance Measured: {np.var(gyr_data[:, 0]):0.5f}, {np.var(gyr_data[:,1]):0.5f}, {np.var(gyr_data[:, 2]):0.5f}")
 
-    print(f"Means Filtered: {np.mean(data[:, 1]):0.5f}, {np.mean(data[:, 2]):0.5f}, {np.mean(data[:, 3]):0.5f}")
-    print(f"Variance Filtered: {np.var(data[:, 1]):0.5f}, {np.var(data[:, 2]):0.5f}, {np.var(data[:, 3]):0.5f}")
+    print(f"Means Measured: {np.mean(acc_data[:, 0]):0.5f}, {np.mean(acc_data[:, 1]):0.5f}, {np.mean(acc_data[:, 2]):0.5f}")
+    print(f"Variance Measured: {np.var(acc_data[:, 0]):0.5f}, {np.var(acc_data[:, 1]):0.5f}, {np.var(acc_data[:, 2]):0.5f}")
+
+    print(f"Means Filtered: {np.mean(mag_data[:, 0]):0.5f}, {np.mean(mag_data[:, 1]):0.5f}, {np.mean(mag_data[:, 2]):0.5f}")
+    print(f"Variance Filtered: {np.var(mag_data[:, 0]):0.5f}, {np.var(mag_data[:, 1]):0.5f}, {np.var(mag_data[:, 2]):0.5f}")
     plt.tight_layout()  # Ensures that subplots are nicely spaced
     plt.show()
+
+

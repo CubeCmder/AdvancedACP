@@ -82,4 +82,4 @@ class SerialRead:
         self.serialConnection.close()
         print('Disconnected...')
         # df = pd.DataFrame(self.csvData)
-        # df.to_csv('/home/rikisenia/Desktop/data.csv')
+        # df.to_csv('/home/rikisenia/Desktop/semi_static_various_motion_data.csv')

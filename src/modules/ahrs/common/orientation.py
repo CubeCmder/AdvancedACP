@@ -811,6 +811,8 @@ def q2rpy(q: np.ndarray, in_deg: bool = False) -> np.ndarray:
     roll = np.arctan2(2.0*(q[0]*q[1] + q[2]*q[3]), 1.0 - 2.0*(q[1]**2 + q[2]**2))
     pitch = np.arcsin(2.0*(q[0]*q[2] - q[3]*q[1]))
     yaw = np.arctan2(2.0*(q[0]*q[3] + q[1]*q[2]), 1.0 - 2.0*(q[2]**2 + q[3]**2))
+    if yaw<0:
+        yaw+=360/180*np.pi
     angles = np.array([roll, pitch, yaw])
     if in_deg:
         return angles*RAD2DEG

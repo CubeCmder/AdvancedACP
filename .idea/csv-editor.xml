@@ -10,7 +10,21 @@
             </Attribute>
           </value>
         </entry>
-        <entry key="\src\primary_aircraft\nav_core\data.csv">
+        <entry key="\src\primary_aircraft\nav_core\r_data.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="\src\primary_aircraft\nav_core\static_axes_data.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="\src\primary_aircraft\sensors\data.csv">
           <value>
             <Attribute>
               <option name="separator" value="," />

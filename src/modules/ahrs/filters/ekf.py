@@ -1132,6 +1132,10 @@ class EKF:
             Q[t] = self.update(Q[t-1], self.gyr[t], self.acc[t])
         return Q
 
+    def update_measurement_noise_covariance(self, noises):
+
+        self._set_measurement_noise_covariance(noises=noises)
+
     def Omega(self, x: np.ndarray) -> np.ndarray:
         """
         Omega operator.
@@ -1350,7 +1354,7 @@ class EKF:
             H = np.vstack((H, H_2))
         return 2.0*H
 
-    def update(self, q: np.ndarray, gyr: np.ndarray, acc: np.ndarray, mag: np.ndarray = None, dt: float = None) -> np.ndarray:
+    def update(self, q: np.ndarray, gyr: np.ndarray, acc: np.ndarray, mag: np.ndarray = None, dt: float = None, correct: bool = True) -> np.ndarray:
         """
         Perform an update of the state.
 
@@ -1401,13 +1405,20 @@ class EKF:
         W   = 0.5*dt * np.r_[[-q[1:]], q[0]*np.identity(3) + skew(q[1:])]  # Jacobian W = df/dω
         Q_t = self.g_noise * W@W.T              # Process Noise Covariance
         P_t = F@self.P@F.T + Q_t                # Predicted Covariance Matrix
-        # ----- Correction -----
-        y   = self.h(q_t)                       # Expected Measurement function
-        v   = self.z - y                        # Innovation (Measurement Residual)
-        H   = self.dhdq(q_t)                    # Linearized Measurement Matrix
-        S   = H@P_t@H.T + self.R                # Measurement Prediction Covariance
-        K   = P_t@H.T@np.linalg.inv(S)          # Kalman Gain
-        self.P = (np.identity(4) - K@H)@P_t     # Updated Covariance Matrix
-        self.q = q_t + K@v                      # Corrected State
+
+        if correct:
+            # ----- Correction -----
+            y   = self.h(q_t)                       # Expected Measurement function
+            v   = self.z - y                        # Innovation (Measurement Residual)
+            H   = self.dhdq(q_t)                    # Linearized Measurement Matrix
+            S   = H@P_t@H.T + self.R                # Measurement Prediction Covariance
+            K   = P_t@H.T@np.linalg.inv(S)          # Kalman Gain
+            self.P = (np.identity(4) - K@H)@P_t     # Updated Covariance Matrix
+            self.q = q_t + K@v                      # Corrected State
+
+        else:
+            self.q = q_t
+
         self.q /= np.linalg.norm(self.q)
+
         return self.q

@@ -39,6 +39,7 @@ if __name__ == '__main__':
     while run:
         try:
             i+=1
+
             accx = imu.readACCx()
             accy = imu.readACCy()
             accz = imu.readACCz()
@@ -49,16 +50,13 @@ if __name__ == '__main__':
 
             magx, magy, magz = mag.getCorrectedData()
 
-            data.append([time.time(), accx, accy, accz, gyrx, gyry, gyrz, magx, magy, magz])
-
-            yaw_measured = atan2(-magy, magx) * 180 / pi
-            if yaw_measured < 0:
-                yaw_measured += 360
-
-            print(f"YAW MEASURED = {yaw_measured:0.2f}")
             while time.time() - tic < dt:
                 pass
+
             tic = time.time()
+
+            data.append([tic, accx, accy, accz, gyrx, gyry, gyrz, magx, magy, magz])
+
             print(f'Time: {dt*i:02f} - idx: {i:0.2f}')
         except (KeyboardInterrupt, SystemExit):  # When you press ctrl+c
             print("\nKilling Program...")

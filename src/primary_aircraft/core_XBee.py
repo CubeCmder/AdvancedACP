@@ -5,12 +5,13 @@
 core_XBee.py
 
 Description:
+
     Main Code for the Avion Cargo Primary Aircraft Localisation System and Data Acquisition System.
 
     The purpose of this code is to tackle the challenges set forth by SAE International in the context of the
     SAE Aero Design competition (https://www.saeaerodesign.com/). This code is intended to fly with the Team's
-    Primary Aircraft (PA), and using a camera, to locate the assigned target. The location of the target is then
-    sent to the ground station (GCS).
+    Primary Aircraft (PA), and using a camera and various sensors, to locate the assigned target. The location
+    of the target is then sent to the ground station (GCS).
 
 Author:
     Cédric-Stephan Dolarian (dolariancedric@gmail.com)
@@ -19,12 +20,14 @@ Date:
     2023-08-19
 
 Usage:
+
     This Software is intended to interact with a base station on the ground. You will not be able to use it otherwise.
 
     The following commands can be sent via radio to control this code:
         -> ...
 
-    The following sensors are required for the proper functioning of this code
+    The following sensors are required for the proper functioning of this code:
+        -> ...
 
 Notes:
     ...

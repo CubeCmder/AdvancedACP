@@ -23,11 +23,12 @@ which consist's in a limited GUI based on pyQt.
 
 ### TODO
 
-- [ ] Implement sensor fusion algorithms to accurately track primary aircraft position and attitude. 
-- [x] Target positioning and computer vision (check! - to test...)
+- [ ] Implement sensor fusion algorithms (Extended Kalman Filter) to accurately track primary aircraft position and attitude.  
+- [ ] Target positioning and computer vision (check! - to test...)
 - [X] Increase GPS reading frequency to 5 Htz (permanently).
 - [ ] Further calibration for magnetometer required (outside area).
-- [ ] Change Standby mode so that terminal commands are accepted. 
+- [ ] Change Standby mode so that terminal commands are accepted.
+- [ ] PADA release mechanism
 
 
 
@@ -36,7 +37,7 @@ which consist's in a limited GUI based on pyQt.
 ### src/primary_aircraft/core_XBee.py
 
 The primary aircraft program is the main program of this project and consists in a central class that provides the 
-primary aircraft telemetry, computer vision and navigational awareness. The current sensors used are:
+primary aircraft with telemetry, computer vision and navigational awareness. The current sensors used are:
 
 - GPS (CAM-M8C)
 - Magnetometer (LIS3MDL)
@@ -44,13 +45,13 @@ primary aircraft telemetry, computer vision and navigational awareness. The curr
 - Barometer/Altimeter (BMP388)
 
 The short term plan is to implement some sort of sensor fusion algorithm in order to increase the accuracy of the readings. 
-This is necessary in order to accurately calculate the primary aircraft's heading and pitch/yaw/roll angles, which 
+This is necessary in order to accurately estimate the primary aircraft's heading and pitch/roll angles, which 
 directly impact the accuracy of the target detection and positioning algorithm. Otherwise, the current features are:
 
 - Target Detection & Positioning
-- Radio Connectivity
+- Radio Communication
 - Telemetry & Data Acquisition
-- Navigation
+- Limited Navigation (through direct sensor readings)
 - Servo Actuation
 
 ### src/ground_station /gcs_xbee.py

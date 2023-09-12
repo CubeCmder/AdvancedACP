@@ -18,7 +18,7 @@ def load_data_from_file(filename):
 
 if __name__ == '__main__':
 
-    data = loaded_data = load_data_from_file('static_axes_data.csv')  # Open the file containing the results here into a numpy array (nx10)
+    data = loaded_data = load_data_from_file('../sensors/samples/static_axes_data.csv')  # Open the file containing the results here into a numpy array (nx10)
 
     AccX = -data[0][1]
     AccY = data[0][2]

@@ -1,13 +1,17 @@
-import os,sys
+"""
+This script registers sensor readings at a given frequency in a .csv file on the Raspberry Pi, in order to be
+post-processed on a Windows computer (for debugging purposes).
+
+Author: Cédric Dolarian
+"""
+
+import os, sys
 
 SRC_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.dirname(SRC_DIR))
 print(SRC_DIR)
 
-import numpy
-import time
 import smbus
-from math import atan2
 
 from primary_aircraft.nav_core.nav_core import *
 from primary_aircraft.sensors.LIS3MDL import LIS3MDL

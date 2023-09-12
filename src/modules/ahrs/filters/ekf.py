@@ -1421,4 +1421,5 @@ class EKF:
 
         self.q /= np.linalg.norm(self.q)
 
+
         return self.q

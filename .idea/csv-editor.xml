@@ -10,6 +10,13 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="\src\primary_aircraft\nav_core\external_accelerationY_data.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
         <entry key="\src\primary_aircraft\nav_core\r_data.csv">
           <value>
             <Attribute>
@@ -17,7 +24,28 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="\src\primary_aircraft\nav_core\semi_static_various_motion_data.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="\src\primary_aircraft\nav_core\semi_static_various_motion_data_2.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
         <entry key="\src\primary_aircraft\nav_core\static_axes_data.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="\src\primary_aircraft\nav_core\static_no_motion_data.csv">
           <value>
             <Attribute>
               <option name="separator" value="," />

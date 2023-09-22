@@ -36,7 +36,7 @@ def load_data_from_file(filename):
 
 if __name__ == '__main__':
 
-    file_name = '../sensors/samples/semi_static_various_motion_data_2.csv'
+    file_name = '../../sensors/samples/semi_static_various_motion_data_2.csv'
     data = load_data_from_file(file_name)  # Open the file containing the results here into a numpy array (nx10)
 
     # Aircraft attitude measured solely with accelerometer
@@ -308,7 +308,7 @@ if __name__ == '__main__':
 
 
     # Create an animation
-    ani = FuncAnimation(fig, update, frames=Q, interval=20)
+    ani = FuncAnimation(fig, update, frames=Q[::3], interval=60)
 
     # Display the animation
     plt.show()

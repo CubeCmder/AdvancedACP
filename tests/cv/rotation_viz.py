@@ -1,8 +1,21 @@
+
+'''
+Visualiser les rotations exprimés dans la convention du package CameraTransform.
+Les conventions suivantes sont centrées sur la caméra ET NON LE PA
+Convention du package utilise des rotations extrinsèques.
+
+(Convention Yaw/Pitch/Roll) -> (Convention Heading/Tilt/Roll)
+                yaw         -> Heading + offset
+                pitch       -> 90 - Tilt
+                roll        -> roll
+'''
+
 import math
 import numpy as np
 from scipy.spatial.transform import Rotation
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+
 
 def angle_vector_plane(v,n):
     theta = np.arccos(np.dot(n,v)/np.linalg.norm(n)*np.linalg.norm(v))

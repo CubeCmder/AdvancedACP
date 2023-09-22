@@ -63,10 +63,10 @@ from utils.misc import detect_model, is_sbc, find_radio_COM
 from utils.nav_math import *
 from cv_core.CVCore import detect_target, locate_target, pos_target
 
-# TODO: - Kalman filtering, 3dim (x-y-z) to track movement (& tilt?) and positioning more accurately
-#       - Target positioning and computer vision (check! - to test...)
-#       - Increase GPS reading frequency to 5 Htz (permanently).
-#       - Further calibration for magnetometer required (outside area).
+# TODO: - Kalman filtering, 3dim (x-y-z) to track movement (& orientation) and positioning more accurately
+#       - Target positioning and computer vision (code available, to be properly implemented).
+#       - Increase GPS reading frequency to 5 Htz (permanently) (check!).
+#       - Further calibration for magnetometer required (in outside area).
 #       - Change Standby mode so that terminal commands are accepted. 
 
 
@@ -306,6 +306,7 @@ class corePrimaryAircraft():
             packet = gpsd.get_current()
             lat, long = packet.lat, packet.lon
 
+            # VÉRIFIER SI LE GPS EST DISPONIBLE ET SI IL Y A UN 3D FIX
             wmm = WMM()  # Create today's magnetic model
             wmm.magnetic_field(lat, long)  # Magnetic field at latitude = 10°, longitude = -20°
             self.declination = wmm.D  # Magnetic declination [degrees]
@@ -317,6 +318,13 @@ class corePrimaryAircraft():
             return False
 
     def fetchData(self):
+        '''
+        This functions gets the raw data from sensors. Data here is unfiltered and generally unreliable. To be replaced
+        by nav_core.
+
+        Returns: a bunch of data
+
+        '''
         # Fetch Altimeter Data
         if self.altimeter is not None:
             temperature, pressure, altitude = self.altimeter.get_temperature_and_pressure_and_altitude()
@@ -406,7 +414,10 @@ class corePrimaryAircraft():
         return data, frame
 
     def fetchDataReport(self):
-        t1 = time.time()
+        t1 = time.time() # Use time.perf_count() instead
+
+        # Since nav_core is meant to run in a separate thread, we need to use queues. Data is reported in a dedicated
+        # object.
         report = self.NAVCore.reports.get()
         print('REPORT TIME: {}s'.format(time.time()-t1))
 
@@ -492,10 +503,13 @@ class corePrimaryAircraft():
         '''
         Transmits sensor data to ground station.
 
-        The nRF24L01+ module can only send a maximum of 32 bytes at a time (i.e. one block).
-        Sensor information must be split in blocks of 32 bytes.
-        Header block sends information concerning message structure and contents.
-        One transmission is ALWAYS concluded by an 'EOF' message.
+        The XBee radio can send data asynchronously to the radio on the opposite end (GCS). Two modes of transmission
+        are available here:
+
+        - 'blocks': Every frame is combined in a single block, where frames are separated by '<' and '>' characters.
+        - 'lines': Every frame is sent individually. More reliable.
+
+        Potential upgrade: implement a checksum system.
 
         :return: None
         '''
@@ -509,11 +523,6 @@ class corePrimaryAircraft():
             message = ''
             for block in blocks:
                 message += '<'+''.join(block)+'>'
-
-            #message += '\n'
-            #print(' DECODED => ' + message)
-            #message = bytes(message, 'utf-8')
-            #print(' ENCODED => ' + str(message))
 
             self.radio.send_data_async(self.GCS_RADIO, message)  # write the message to radio
 
@@ -530,10 +539,9 @@ class corePrimaryAircraft():
                 self.radio.send_data_async(self.GCS_RADIO, message)  # write the message to radio
             print('\nData size = {} bytes, {} bits\n'.format(len_bytes, len_bytes*8))
 
-    def receiveFromGCS(self, timeout=1.0):
+    def receiveFromGCS(self):
         """
-        Listen to any transmission coming fromm the ground station.
-        Wait one second before timeout.
+        [DEPRECATED] - Listen to any transmission coming fromm the ground station.
         """
 
         print('\nListening to ground station...')
@@ -571,9 +579,9 @@ class corePrimaryAircraft():
         self.RECV_DATA_QUEUE.put(data)
 
     def processRecv(self):
-        '''
+        """
         Process the received buffer in order to execute a command.
-        '''
+        """
 
         rep_blcks = []
 
@@ -708,9 +716,9 @@ class corePrimaryAircraft():
             return self.STATUS, rep_blcks
 
     def gps_measure_error(self, timeout=1):
-        '''
+        """
         Just a loop to estimate GPS accuracy and error rate.
-        '''
+        """
 
         stat = self.STATUS
         count = 0
@@ -773,11 +781,10 @@ class corePrimaryAircraft():
         return stat
 
     def calibrate_altimeter(self, num=100):
-        '''
+        """
         Calibrate the altimeter so that the current pressure readings is equal to 0m of altitude.
-        Grabs 100 measurements. Cannot be used if vehicle status is "ARMED".
-
-        '''
+        Grabs 100 measurements. Should not be used if vehicle status is "ARMED".
+        """
 
         vals = []
         for i in range(num):
@@ -825,7 +832,6 @@ class corePrimaryAircraft():
         Once this command is received, the radio sends a '@ARMED' confirmation message.
         """
 
-
         # Wait for a command from the ground station
         stat = self.STATUS
 
@@ -869,10 +875,11 @@ class corePrimaryAircraft():
         return stat
 
     def release_pada(self):
-        '''
+        """
         Release the PADA. Set the servo duty cycle for release.
-        '''
+        """
 
+        # THIS NEEDS TO BE TESTED
         self.servo.ChangeDutyCycle(self.SERVO_RELEASE_DUTY_CYCLE*self.SERVO_FREQUENCY/1000000*100)
         time.sleep(5)
         self.servo.ChangeDutyCycle(self.SERVO_IDLE_DUTY_CYCLE*self.SERVO_FREQUENCY/1000000*100)

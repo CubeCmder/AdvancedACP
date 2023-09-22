@@ -311,7 +311,7 @@ if __name__ == '__main__':
     bearing = 0
 
     # Charger l'image
-    image_path = r'C:\Users\Admin\Desktop\All Files\Projects\2.AvionCargo\AdvancedSystems\PA\map2.png'
+    image_path = r'C:\Users\Dolar\OneDrive\Bureau\All files\Projects\AdvancedACP\src\primary_aircraft\cv_core\map2.png'
     image = cv2.imread(image_path)
 
     res, target_contour = detect_target(image, 'red')

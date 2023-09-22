@@ -1,11 +1,11 @@
 # Nous tentons de calculer la position d'une cible CIRCULAIRE d'une couleur connue à partir d'un avion en vol. Nous connaissons sa position GPS et son altitude, ainsi que son orientation.
 # Nous utiliseron python et open cv
 # Inputs:
-#   - Résolution [m/px]
-#   - Position centre de l'image [GPS]
+#   - Résolution (échelle) [m/px]
+#   - Coordonnées GPS du centre de l'image [GPS]
 #   - Couleur recherchée
 #   - Image
-#   - Bearing / Orientation
+#   - Bearing / Orientation / Yaw
 
 # 1) Détecter la cible sur l'image
 #
@@ -17,12 +17,12 @@ import math
 
 import cv2
 import numpy as np
-from scipy.spatial.transform import Rotation
 
 from utils.nav_math import get_lat_lon_from_dy_dx
 from modules.cameratransform import SpatialOrientation, camera, projection
 
-def calculate_target_coordinates_vertical(target_loc, altitude, img_size, fov):
+
+def calculate_target_coordinates_horizontal(target_loc, altitude, img_size, fov):
     """
 
     Args:
@@ -55,11 +55,7 @@ def calculate_target_coordinates_vertical(target_loc, altitude, img_size, fov):
     # maybe offset y needs to be *-1
     return offset_x, offset_y
 
-def get_camera_angles_from_aircraft(pitch, roll):
-    rot_mat = Rotation.from_euler('xy', [roll, pitch], degrees=True).as_matrix()
 
-    z_prime = np.linalg.linalg.matmul(rot_mat, [0.0, 0.0, -1.0])
-    math.degrees(np.pi/2 - np.arccos(np.abs(np.linalg.linalg.dot(z_prime, [0.0, 0.0, -1.0]))/(np.linalg.norm(z_prime))))
 def get_img_offset_meters(target_loc, altitude, pitch, roll, img_size, hfov):
     """
     Calculate the real world offsets in meters for the target position relative to the aircraft. This function considers
@@ -68,15 +64,14 @@ def get_img_offset_meters(target_loc, altitude, pitch, roll, img_size, hfov):
     Args:
         target_loc: Target position on image; array (1x2) [pixels]
         altitude: Aircraft altitude, or camera height above the ground plane; float [meters]
-        pitch: Camera pitch (0 is looking straight in front) [degrees]
-        roll: Camera roll angle [degrees]
+        pitch: Aircraft pitch (0 is looking straight in front) [degrees]
+        roll: Aircraft roll angle [degrees]
         img_size: Image size in pixels; array (1x2) [pixels]
         hfov: Horizontal FOV angle of camera [degrees]
 
     Returns: X and Y offsets in meters relative to the aircraft.
 
     """
-    camera_pitch, camera_roll, camera_heading = get_camera_angles_from_aircraft()
     orientation = SpatialOrientation(elevation_m=altitude, tilt_deg=90 - pitch, roll_deg=roll)
 
     proj = projection.RectilinearProjection(image_width_px=img_size[0], image_height_px=img_size[1], view_x_deg=hfov,
@@ -227,7 +222,7 @@ def detect_target(frame, color):
         return frame, target_contour
 
 
-def pos_target(frame, target_contour, altitude, hfov, pitch=0, roll=0):
+def pos_target(frame, target_contour):
     '''
     Find the position of the center of the target relative to the image center.
 
@@ -255,24 +250,30 @@ def pos_target(frame, target_contour, altitude, hfov, pitch=0, roll=0):
     cv2.circle(frame, (center_x_target, center_y_target), 3, (0, 255, 0), -1)
     cv2.line(frame, (center_x_target, center_y_target), (center_x_image, center_y_image), (0, 255, 0), 2)
 
-    offx, offy = get_img_offset_meters([center_x_target, center_y_target],
-                                       altitude,
-                                       pitch,
-                                       roll,
-                                       [width, height],
-                                       hfov)
-    return offx, offy
+    # Calculer les positions relatives de la cible par rapport au centre de l'image
+    relative_position_x = center_x_target - center_x_image
+    relative_position_y = - center_y_target + center_y_image
+
+    print("Position relative de la cible par rapport au centre de l'image (en pixels) :")
+    print("X :", relative_position_x)
+    print("Y :", relative_position_y)
+
+    pos = [center_x_target, center_y_target]
+    rel_pos = [relative_position_x, relative_position_y]
+
+    return rel_pos, pos
 
 
-def locate_target(bearing, center_gps, x_y_target ):
+def locate_target(bearing, center_gps, x_y_target, resolution):
     '''
     Locate the target based on the GPS coordinate system.
 
     Args:
         bearing: the compass bearing [degrees from North]
         center_gps: the gps coordinates of the image center,
-                    assumed to be the coordinates of the plane [latitude, longitude]
-        x_y_target: the [X, Y] coordinates of the target about the image center [meters]
+                    assumed to be the coordinates of the plane [latitude. longitude]
+        x_y_target: the [X, Y] coordinates of the target about the image center
+        resolution: The camera's resolution per meter of altitude [m/(px*m)]
 
     Returns:
         target_gps: The target's GPS coordinates.
@@ -286,7 +287,9 @@ def locate_target(bearing, center_gps, x_y_target ):
     latitude_origin = center_gps[0]
     longitude_origin = center_gps[1]
 
-    x, y = x_y_target
+    # Convertir la position de la cible de pixels en mètres
+    x = x_y_target[0] * resolution  # Vous devrez connaître la résolution de l'image en mètres/pixel
+    y = x_y_target[1] * resolution  # Vous devrez connaître la résolution de l'image en mètres/pixel
 
     # Effectuer la rotation en fonction de la direction de l'avion [mètres vers l'Est et vers le Nord]
     rotated_x = x * math.cos(bearing_rad) - y * math.sin(bearing_rad)
@@ -301,7 +304,6 @@ def locate_target(bearing, center_gps, x_y_target ):
 
     return target_gps, target_pos_rel
 
-
 if __name__ == '__main__':
     resolution = 945.4581754044675 / 803
     resolution = 463.6084526469746 / 1109
@@ -309,16 +311,31 @@ if __name__ == '__main__':
     bearing = 0
 
     # Charger l'image
-    image_path = r'C:\Users\Admin\Desktop\All Files\Projects\2.AvionCargo\AdvancedSystems\PA\map2.png'
+    image_path = r'C:\Users\Dolar\OneDrive\Bureau\All files\Projects\AdvancedACP\src\primary_aircraft\cv_core\map2.png'
     image = cv2.imread(image_path)
 
     res, target_contour = detect_target(image, 'red')
     if target_contour is None:
         print('\nNo target detected.')
     else:
-        target_pos_rel, target_pos = pos_target(image, target_contour,altitude, hfov, pitch=0, roll=0)
+        target_pos_rel, target_pos = pos_target(image, target_contour)
         target_gps, target_pos_rel = locate_target(bearing, [latitude_vehicule, longitude_vehicule], target_pos_rel,
                                                    resolution)
+
+        cv2.putText(image, text='RELATIVE_POSITION: {} (meters - image CS)'.format(target_pos_rel),
+                    org=(10, 20),
+                    fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.4, color=(0, 0, 0),
+                    thickness=1, lineType=cv2.LINE_AA)
+
+        cv2.putText(image, text='TARGET_GPS = {} (degrees N-E)'.format(target_gps),
+                    org=(10, 40),
+                    fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.4, color=(0, 0, 0),
+                    thickness=1, lineType=cv2.LINE_AA)
+
+        cv2.putText(image, text='BEARING = {} (degrees N)'.format(bearing),
+                    org=(10, 60),
+                    fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.4, color=(0, 0, 0),
+                    thickness=1, lineType=cv2.LINE_AA)
 
         cv2.imshow('Image avec la cible détectée', image)
         cv2.waitKey(0)

@@ -9,17 +9,16 @@ offload these calculations from the main thread.
 import time
 # import gpsd
 import numpy as np
-import threading
+import threading  # We'll need to use the <<multiprocessing>> package instead, the idea is the same
 
 from math import pi
 from queue import LifoQueue
 from scipy.spatial.transform import Rotation
 
 from modules.ahrs.utils import WMM as wmm
-from EKF.ekf import ekf_pos, ekf_ahrs
-from modules.ahrs.common.orientation import ecompass, am2angles
+from EKF.ekf import ekf_pos, ekf_ahrs  # THESE NEED TO BE IMPLEMENTED
+from modules.ahrs.common.orientation import am2angles  # am2angles gives adequate results, there are other interesting functions here
 from modules.NavPy.navpy.core.navpy import omega2rates
-#R_roll = np.array([[1, 0, 0], [0, np.cos()],[]])
 
 def tilt_compensated_heading(mag, rot_mat=None, angles=None, geo_north=True, mag_declination=0):
     """
@@ -250,7 +249,7 @@ class NAVCore(threading.Thread):
         else:
             x_i = x0_ahrs
 
-        # This EKF estimates aircraft position
+        # This EKF estimates aircraft position - To be implemented
         self.ekf_pos = ekf_pos()
 
         # This EKF estimates aircraft attitude

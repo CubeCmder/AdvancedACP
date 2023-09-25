@@ -89,7 +89,7 @@ class ekf_pos():
             F = self.F
 
         # Define matrix F based on dt
-        self.x = F @ self.x + self.B @ self.u
+        self.x = F @ self.x + self.B @ self.u  # new accelerometer data to be used on next step!
         self.P = (F @ self.x) @ F.T + self.Q
 
         self.K = self.P @ self.H.T @ linalg.inv(self.H @ self.P @ self.H.T + self.R)

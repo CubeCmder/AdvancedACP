@@ -1024,6 +1024,7 @@ class EKF:
         if default_noises.size != 3:
             raise ValueError(f"Spectral noise variances must be given in a 1-dimensional array with 3 elements. Got {default_noises.size} elements instead.")
         self.noises = [kw.get(label, value) for label, value in zip(['var_gyr', 'var_acc', 'var_mag'], default_noises)]
+        #self.noises = default_noises
         self.g_noise, self.a_noise, self.m_noise = self.noises
         return np.diag(np.repeat(self.noises[1:], 3))
 

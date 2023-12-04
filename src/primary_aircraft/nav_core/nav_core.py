@@ -64,7 +64,6 @@ def tilt_compensated_heading(mag, rot_mat=None, angles=None, geo_north=True, mag
 
     return h
 
-
 class NAVReport:
     # Report sensor data in an organised object
     def __init__(self, x_ahrs, z_ahrs):

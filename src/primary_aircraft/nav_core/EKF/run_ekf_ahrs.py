@@ -2,8 +2,8 @@
 
 This script runs an External Kalman Filter (EKF) as implemented in the AHRS python library by Mayitzin
 (github: https://github.com/Mayitzin/ahrs). The results are displayed on a graph and an animation. The
-code also prints the variance and mean of each sensor axis (the sensor samples must be devoid of motion
-for these values to be meaningful).
+code can also print the variance and mean bias of each sensor axis (the sensor samples must be devoid of motion
+for these values to be meaningful - aka static samples).
 
 This code requires sensor data formatted in a .csv file (see sensor_gather.py under src/primary_aircraft/sensors and
 sample examples under src/primary_aircraft/sensors/samples).
@@ -12,6 +12,7 @@ Author: Cédric Dolarian
 """
 
 import numpy as np
+import pathlib
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from src.modules.ahrs.filters import EKF
@@ -36,7 +37,9 @@ def load_data_from_file(filename):
 
 if __name__ == '__main__':
 
-    file_name = '../../sensors/samples/semi_static_various_motion_data_2.csv'
+    dir_path = pathlib.Path(__file__).parent.parent.parent.resolve()
+    print(dir_path)
+    file_name = str(dir_path)+'\sensors\samples\static_no_motion_data.csv'
     data = load_data_from_file(file_name)  # Open the file containing the results here into a numpy array (nx10)
 
     # Aircraft attitude measured solely with accelerometer
@@ -115,7 +118,7 @@ if __name__ == '__main__':
     print(am2angles(acc_data[0], mag_data[0], True))
     Q[0] = am2q(a0, m0, frame='NED')
     noises = [0.00041, 0.0000218, 0.35]
-    noises = [0.1 ** 2, 0.2 ** 2, 0.8 ** 2]
+    #noises = [0.4 ** 2, 0.2 ** 2, 0.8 ** 2]
     wmm = WMM(latitude=45.513149172533765, longitude=-73.62900722758671)
     ekf = EKF(magnetic_ref=wmm.I,
               noises=noises,
@@ -153,6 +156,7 @@ if __name__ == '__main__':
     axes[1].plot(t_v[:], eulers[:, 1], label='Filtered Pitch', color='orange')
     axes[1].plot(t_v[:], m_pitch[:], '--', label='Measured Pitch', color='orange')
     axes[1].plot(t_v[:], i_pitch[1:], '-.', label='Integrated Pitch', color='orange')
+    #axes[1].plot(t_v[:], gyr_data[:,2], '.', label='Gyro Data', color='orange')
 
     axes[2].axhline(0, color='gray')
     axes[2].plot(t_v[:], eulers[:, 2], label='Filtered Roll', color='green')
